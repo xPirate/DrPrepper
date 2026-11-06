@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en" data-theme="{{ theme }}" data-mode="{{ mode }}"{% if brand.accent %} data-brand-accent{% endif %}>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf" content="{{ csrf }}">
+{% if user and user.id %}<meta name="role" content="{{ user.role }}">{% endif %}
+<title>{% block title %}{{ site }}{% endblock %}</title>
+<link rel="stylesheet" href="/theme.css?v={{ theme_ver }}">
+<link rel="stylesheet" href="/static/style.css">
+{% if brand.icon %}<link rel="icon" href="/branding/icon?v={{ brand.icon_ver }}">{% else %}<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">{% endif %}
+<script src="/static/app.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="{{ '/' if user else '/drugs' }}" aria-label="{{ brand_title }}">
+    {% if brand.icon and brand.show in ('both', 'icon') %}<img src="/branding/icon?v={{ brand.icon_ver }}" alt="">{% endif %}
+    {% if brand.show != 'icon' or not brand.icon %}<span class="bt">{{ brand_title }}{% if brand.tagline %}<span class="tagline">{{ brand.tagline }}</span>{% endif %}</span>{% endif %}
+  </a>
+  <nav>
+    {% if user and user.id %}
+      <a href="/">{{ 'Triage board' if user.role in ('triage', 'admin') else 'My patients' if user.role == 'provider' else 'Dashboard' }}</a>
+      <a href="/patients">All patients</a>
+      <a href="/census">Census</a>
+      {% if user.role in ('triage', 'admin') %}<a href="/#incoming" class="incoming-badge" data-incoming hidden>Incoming <span data-incoming-n>0</span></a>{% endif %}
+    {% endif %}
+    {% if has_drugs %}
+      <a href="/drugs">Drugs</a>
+      <a href="/tox" class="od">Overdose</a>
+    {% endif %}
+    {% if user and user.role == 'admin' %}
+      <a href="/admin/users">Admin</a>
+    {% endif %}
+  </nav>
+  <div class="who">
+    <form method="post" action="/display/mode" class="inline">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="next" value="{{ request.url.path }}"><input type="hidden" name="mode_now" value="{{ mode }}">
+      <button class="mode-toggle" title="Switch between automatic, light and dark">{{ {'auto': '◐ Auto', 'light': '☀ Light', 'dark': '☾ Dark'}[mode] }}</button>
+    </form>
+    {% if user and user.id %}
+      <details class="account">
+        <summary>{{ user.full_name }} <small class="role role-{{ user.role }}">{{ user.role|rolelabel }}</small></summary>
+        <div class="account-menu">
+          <a href="/account/display">Display &amp; theme</a>
+          <a href="/account/password">Change password</a>
+          <form method="post" action="/logout"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="link">Log out</button></form>
+        </div>
+      </details>
+    {% else %}
+      <a href="/login">Log in</a>
+    {% endif %}
+  </div>
+</header>
+{% if user and user.role == 'admin' and request.url.path.startswith('/admin') %}
+<nav class="subnav">
+  {% for href, label in [('/admin/users', 'Users'), ('/admin/audit', 'Audit trail'), ('/admin/syslog', 'Syslog'), ('/admin/trust', 'Trust center'), ('/admin/encryption', 'Encryption'), ('/admin/backups', 'Backup & restore'), ('/admin/locations', 'Locations'), ('/admin/board', 'Status board'), ('/admin/time', 'Date & time'), ('/admin/touchscreen', 'Touchscreen'), ('/admin/branding', 'Branding')] %}
+  <a href="{{ href }}" class="{{ 'on' if request.url.path.startswith(href) }}">{{ label }}</a>
+  {% endfor %}
+</nav>
+{% endif %}
+{% if sample_data %}
+{% set st = sample_data.status %}
+<div class="banner sample" role="alert">
+  <b>SAMPLE DRUG DATA – not a real drug reference.</b>
+  {% if not sample_data.installed %}No drug database is installed.
+  {% elif st and st.state in ('downloading', 'building') %}Placeholder text only. The full FDA database is being prepared: {{ st.detail }}. It switches over automatically when finished.
+  {% elif st and st.state == 'failed' %}Placeholder text only. The full FDA download failed: {{ st.detail }}
+  {% else %}Placeholder text only. The full FDA database has not been downloaded.{% endif %}
+  {% if not st or st.state == 'failed' %}<span class="how">To download it: connect to the internet and run <code>docker compose run --rm ingest</code> (Docker) or <code>sudo systemctl start drprepper-ingest</code> (Pi).</span>{% endif %}
+</div>
+{% endif %}
+{% if clock_suspect %}
+<div class="banner error">The system clock looks wrong ({{ clock.strftime('%Y-%m-%d %H:%M') }}). Timestamps will be inaccurate. Set the clock (fit the Pi's RTC battery).</div>
+{% endif %}
+{% if user and user.id and not encrypted %}
+<div class="banner warn">DEVELOPMENT MODE: patient data is stored unencrypted.</div>
+{% endif %}
+<main>
+  {% for kind, msg in flashes %}<div class="flash {{ kind }}">{{ msg }}</div>{% endfor %}
+  {% block content %}{% endblock %}
+</main>
+<dialog id="allergy-dialog" class="allergy-dialog" aria-labelledby="ad-title">
+  <header><h2 id="ad-title">Allergies</h2><button type="button" class="link" data-close>Close</button></header>
+  <p class="ad-who"></p>
+  <ul class="ad-list"></ul>
+  <p class="ad-none"></p>
+  <p class="muted ad-foot">This view is recorded in the audit trail.</p>
+</dialog>
+<footer>
+  {% if drug_meta %}Drug data built {{ drug_meta.get('built_at', '?') }}. {% endif %}
+  Reference aid for trained responders; follow local protocols and medical direction. Poison Control (US): 1-800-222-1222.
+</footer>
+</body>
+</html>

@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Trust center</h1>
+<p class="muted">The certificate that secures the web console on this unit's Wi-Fi.{% if not live %} The server was not started by drprepper-manage, so a new certificate takes effect after a restart.{% endif %}</p>
+{% if err %}<div class="flash error">{{ err }}</div>{% endif %}
+
+{% if info %}
+<section class="card cert {{ info.status }}">
+  <div class="row-head">
+    <h2>Installed certificate</h2>
+    <span class="tag {{ 'ok' if info.status == 'ok' else 'danger' if info.status == 'expired' else 'warn' }}">
+      {% if info.status == 'expired' %}expired{% elif info.status == 'expiring' %}expires in {{ info.days_left }} days{% else %}valid, {{ info.days_left }} days left{% endif %}</span>
+  </div>
+  <dl class="kv">
+    <dt>Subject</dt><dd>{{ info.subject }}</dd>
+    <dt>Issuer</dt><dd>{{ info.issuer }}{% if info.self_signed %} <span class="tag">self-signed</span>{% endif %}</dd>
+    <dt>Names</dt><dd>{{ info.sans|join(', ') or 'none' }}</dd>
+    <dt>Valid</dt><dd>{{ info.not_before.strftime('%Y-%m-%d') }} to {{ info.not_after.strftime('%Y-%m-%d') }}</dd>
+    <dt>Key</dt><dd>{{ info.key_type }}{% if info.key_matches is false %} <span class="tag danger">private key does not match</span>{% endif %}</dd>
+    <dt>SHA-256</dt><dd class="mono fp">{{ info.fingerprint }}</dd>
+    <dt>Serial</dt><dd class="mono">{{ info.serial }}</dd>
+  </dl>
+  <div class="actions">
+    <a class="btn primary" href="/trust/drprepper.crt">Download certificate for devices</a>
+    {% if prev_info %}<form method="post" action="/admin/trust/rollback" class="inline" data-confirm="Go back to the previous certificate ({{ prev_info.subject }}, valid to {{ prev_info.not_after.strftime('%Y-%m-%d') }})?"><input type="hidden" name="csrf" value="{{ csrf }}"><button>Go back to previous certificate</button></form>{% endif %}
+  </div>
+  <p class="muted">Install the downloaded certificate on each laptop or phone as trusted to stop the browser warning. Compare the SHA-256 fingerprint above with what the device shows. Anyone on the unit's Wi-Fi can download it from the sign-in page.</p>
+</section>
+{% else %}
+<div class="flash warn">No certificate is installed. Create one below.</div>
+{% endif %}
+
+<details class="card" {{ 'open' if not info }}>
+  <summary><h2>Create a new self-signed certificate</h2></summary>
+  <form method="post" action="/admin/trust/self-signed" class="grid3" data-confirm="Replace the current certificate? Devices that trust the old one will warn until they trust the new one.">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Common name <input name="cn" value="drprepper.local" required></label>
+    <label>Organization <input name="org" placeholder="optional"></label>
+    <label>Valid for (days) <input name="days" value="825" inputmode="numeric"></label>
+    <label class="span2">Names and addresses, one per line
+      <textarea name="names" rows="4" class="mono">drprepper.local
+10.42.0.1
+localhost
+127.0.0.1</textarea></label>
+    <label>Key type <select name="kind"><option value="ecdsa">ECDSA P-256 (recommended)</option><option value="rsa">RSA 2048 (older devices)</option></select></label>
+    <div class="span3 actions"><button class="primary">Create and install</button></div>
+  </form>
+  <p class="muted">825 days is the longest validity Apple devices accept. The previous certificate is kept so you can go back.</p>
+</details>
+
+<details class="card" id="csr" {{ 'open' if csr }}>
+  <summary><h2>Use a certificate from your organization's CA</h2></summary>
+  <ol class="steps">
+    <li>Create a signing request. The private key is generated here and never leaves the unit.</li>
+    <li>Send the request to your certificate authority.</li>
+    <li>Upload the signed certificate they return (and any intermediate certificates).</li>
+  </ol>
+  {% if csr %}
+  <div class="flash info">A signing request is waiting for its certificate.</div>
+  <textarea readonly rows="8" class="mono" aria-label="Pending certificate signing request">{{ csr }}</textarea>
+  <p><a class="btn" href="/admin/trust/pending.csr">Download request (.csr)</a></p>
+  {% endif %}
+  <form method="post" action="/admin/trust/csr" class="grid3">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Common name <input name="cn" value="drprepper.local" required></label>
+    <label>Organization <input name="org"></label>
+    <label>Key type <select name="kind"><option value="ecdsa">ECDSA P-256</option><option value="rsa">RSA 2048</option></select></label>
+    <label class="span3">Names and addresses, one per line <textarea name="names" rows="3" class="mono">drprepper.local
+10.42.0.1</textarea></label>
+    <div class="span3 actions"><button>{{ 'Create a new request' if csr else 'Create signing request' }}</button></div>
+  </form>
+</details>
+
+<details class="card" {{ 'open' if csr }}>
+  <summary><h2>Upload a certificate</h2></summary>
+  <form method="post" action="/admin/trust/install" enctype="multipart/form-data" class="grid2">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Signed certificate (.crt / .pem) <input type="file" name="cert_file" accept=".crt,.pem,.cer"></label>
+    <label>Intermediate / chain certificates <input type="file" name="chain_file" accept=".crt,.pem,.cer"></label>
+    <label class="span2">Private key (.key) <span class="muted">{{ 'Leave empty: the key from the pending request is used.' if csr else 'Required unless the certificate answers a request made here.' }}</span>
+      <input type="file" name="key_file" accept=".key,.pem"></label>
+    <label class="span2">Or paste the certificate, PEM <textarea name="cert_pem" rows="4" class="mono" placeholder="-----BEGIN CERTIFICATE-----"></textarea></label>
+    <div class="span2 actions"><button class="primary">Check and install</button></div>
+  </form>
+  <p class="muted">The certificate is checked before it is installed: the key must match, and it must be currently valid.</p>
+</details>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Syslog forwarding</h1>
+<p class="muted">Sends every audit entry to your syslog server or SIEM in RFC 5424 format. Entries written while the server is unreachable are queued and sent when it comes back.</p>
+
+<dl class="card status-row">
+  <div><dt>Forwarding</dt><dd>{% if cfg.enabled %}<span class="tag ok">on</span>{% else %}<span class="tag">off</span>{% endif %}</dd></div>
+  <div><dt>Queued</dt><dd class="num">{{ st.pending }}</dd></div>
+  <div><dt>Last sent</dt><dd>{{ (st.last_ok or '')|dt or '—' }}{% if st.last_id %} <small class="muted">(entry #{{ st.last_id }})</small>{% endif %}</dd></div>
+  <div class="grow"><dt>Last error</dt><dd>{% if st.last_error %}<span class="err">{{ st.last_error }}</span>{% else %}none{% endif %}</dd></div>
+</dl>
+
+<form method="post" action="/admin/syslog" class="card grid3" id="syslog-form">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label class="check span3"><input type="checkbox" name="enabled" value="1" {{ 'checked' if cfg.enabled }}> Forward audit entries to syslog</label>
+  <label>Server (host or IP) <input name="host" value="{{ cfg.host }}" placeholder="siem.example.org or 10.42.0.50"></label>
+  <label>Port <input name="port" value="{{ cfg.port }}" inputmode="numeric"></label>
+  <label>Transport
+    <select name="transport" data-port-defaults>
+      <option value="tls" {{ 'selected' if cfg.transport == 'tls' }}>TCP + TLS (encrypted, recommended)</option>
+      <option value="tcp" {{ 'selected' if cfg.transport == 'tcp' }}>TCP (unencrypted)</option>
+      <option value="udp" {{ 'selected' if cfg.transport == 'udp' }}>UDP (unencrypted, no delivery check)</option>
+    </select></label>
+  <label>Message framing
+    <select name="framing">
+      <option value="octet" {{ 'selected' if cfg.framing == 'octet' }}>Octet counting (RFC 5425/6587)</option>
+      <option value="newline" {{ 'selected' if cfg.framing == 'newline' }}>Newline-delimited</option>
+    </select></label>
+  <label>Facility
+    <select name="facility">{% for n, label in facilities.items() %}<option value="{{ n }}" {{ 'selected' if cfg.facility == n }}>{{ label }} ({{ n }})</option>{% endfor %}</select></label>
+  <label>Hostname to report <input name="hostname" value="{{ cfg.hostname }}" placeholder="this unit's hostname"></label>
+  <label class="check span3"><input type="checkbox" name="verify" value="1" {{ 'checked' if cfg.verify }}> Check the server's TLS certificate (turn off only for testing)</label>
+  <label class="span3">Server CA certificate, PEM <span class="muted">(leave blank to use the system's trusted CAs)</span>
+    <textarea name="ca_pem" rows="4" class="mono" placeholder="-----BEGIN CERTIFICATE-----">{{ cfg.ca_pem }}</textarea></label>
+  <label class="span3">When saving
+    <select name="start_from"><option value="keep">Continue from where forwarding left off ({{ st.pending }} queued)</option>
+      <option value="now">Skip queued entries and forward only new ones</option></select></label>
+  <input type="hidden" name="app_name" value="{{ cfg.app_name }}">
+  <div class="span3 actions">
+    <button class="primary">Save</button>
+    <button formaction="/admin/syslog/test">Send test message</button>
+  </div>
+</form>
+<p class="muted">Each message carries the readable audit line plus structured data: entry number, user, action, patient number, client address and the entry's chain hash, so the SIEM copy can be checked against this unit.</p>
+{% endblock %}

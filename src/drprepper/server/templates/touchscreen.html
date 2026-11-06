@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Touchscreen intake</h1>
+<p class="muted">Lets whoever is on comms send an incoming-patient report from the unit's touchscreen straight to the triage board. The touchscreen can only send reports; it can't open any patient record.</p>
+
+<form method="post" action="/admin/touchscreen" class="card grid3">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label class="check span3"><input type="checkbox" name="enabled" value="1" {{ 'checked' if cfg.enabled }}> Accept incoming-patient reports from the touchscreen</label>
+  <label class="check span3"><input type="checkbox" name="require_pin" value="1" {{ 'checked' if cfg.require_pin }}> Require a PIN to send a report</label>
+  <label>PIN (4-8 digits) <input name="pin" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="{{ '•••• (set; type to change)' if cfg.pin_hash else 'not set' }}"></label>
+  <div class="span2 muted">Without a PIN, anyone standing at the screen can send a report. Reports are labelled as touchscreen reports in the audit trail, with the name or call sign the sender types.</div>
+  <div class="span3 actions"><button class="primary">Save</button></div>
+</form>
+
+<form method="post" action="/admin/touchscreen" class="card grid3">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="hidden" name="enabled" value="{{ '1' if cfg.enabled }}"><input type="hidden" name="require_pin" value="{{ '1' if cfg.require_pin }}">
+  <h2 class="span3">Exit-to-desktop PIN</h2>
+  <p class="span3 muted">Leaving the kiosk app needs this PIN. Without one, the Exit button is disabled. {% if cfg.exit_pin_hash %}<b>A PIN is set.</b>{% else %}<b>No PIN set: nobody can leave the kiosk from the screen.</b>{% endif %}</p>
+  <label>New exit PIN (6-8 digits) <input name="exit_pin" inputmode="numeric" autocomplete="off" maxlength="8"></label>
+  {% if cfg.exit_pin_hash %}<label class="check"><input type="checkbox" name="exit_clear" value="1"> Remove the PIN (disable Exit)</label>{% endif %}
+  <div class="span3 actions"><button class="primary">Save exit PIN</button></div>
+</form>
+
+<h2>Device token</h2>
+<div class="card stack">
+  <p>The touchscreen proves it belongs to this unit with a token stored in <span class="mono">{{ kiosk_dir }}</span>, next to a copy of this unit's certificate (so the touchscreen only talks to this server). Token fingerprint: <b class="mono">{{ fp or 'missing' }}</b>.</p>
+  <form method="post" action="/admin/touchscreen/rotate" class="inline" data-confirm="Replace the device token? The touchscreen on this unit picks up the new one automatically."><input type="hidden" name="csrf" value="{{ csrf }}"><button>Replace token</button></form>
+</div>
+
+<h2>Recent touchscreen reports</h2>
+<ol class="audit">
+  {% for a in reports %}<li class="sev-{{ a.severity }}"><span class="msg">{{ a.message }}</span><span class="meta">#{{ a.id }}{% if a.pnum %} · <a href="/admin/audit?pnum={{ a.pnum }}">patient {{ a.pnum }}</a>{% endif %}</span></li>
+  {% else %}<li class="muted">No reports yet.</li>{% endfor %}
+</ol>
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row-head"><h1>Status board</h1><a class="btn" href="/board" target="_blank" rel="noopener">Open the board</a></div>
+<p class="muted">A read-only wall screen: room status and patient counts, refreshed every 10 seconds. Plug a TV into the Pi's second HDMI port, or open it on any screen on the unit's Wi-Fi with a display key.</p>
+
+<form method="post" action="/admin/board" class="card stack">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <h2>What the board shows</h2>
+  <label class="check"><input type="checkbox" name="names" value="1" {{ 'checked' if cfg.names }}> Show patient names (first initial and last name, e.g. "M. Hayes"), their provider, and allergy / DNR flags</label>
+  <p class="muted">Off by default: with names off the board shows rooms and counts only, nothing that identifies anyone. Turn names on only when every board screen is inside the facility, out of public view. Every screen shows "NAMES SHOWN" while it's on.</p>
+  <label class="check"><input type="checkbox" name="show_morgue" value="1" {{ 'checked' if cfg.show_morgue }}> Show the morgue</label>
+  <label class="check"><input type="checkbox" name="allow_local" value="1" {{ 'checked' if cfg.allow_local }}> The unit's own screen (HDMI on the Pi) opens the board without a key</label>
+  <label>Look <select name="mode"><option value="dark" {{ 'selected' if cfg.mode == 'dark' }}>Dark (best for TVs)</option><option value="light" {{ 'selected' if cfg.mode == 'light' }}>Light</option></select></label>
+  <div class="actions"><button class="primary">Save</button></div>
+</form>
+
+<section class="card stack">
+  <h2>Display keys</h2>
+  <p class="muted">A key lets one screen show the board without anyone signing in. It opens the board and nothing else. Open the link once on the screen; the browser remembers it.</p>
+  {% if new_key %}
+  <div class="flash info key-once">
+    <b>Key for "{{ new_key.name }}"</b> — open this link on that screen. It's shown only once.
+    <code class="copy">{{ base_url }}/board?key={{ new_key.key }}</code>
+  </div>
+  {% endif %}
+  <table class="compact">
+    <thead><tr><th>Screen</th><th>Created</th><th>Last seen</th><th></th></tr></thead>
+    <tbody>
+    {% for k in keys %}
+      <tr class="{{ 'off' if k.revoked_at }}"><td>{{ k.name }}</td><td>{{ k.created_at|dt }} · {{ k.by_name or '' }}</td>
+        <td>{% if k.last_seen_at %}{{ k.last_seen_at|dt }} from {{ k.last_client }}{% else %}<span class="muted">never</span>{% endif %}</td>
+        <td>{% if k.revoked_at %}revoked {{ k.revoked_at|dt }}{% else %}
+          <form method="post" action="/admin/board/keys/{{ k.id }}/revoke" class="inline" data-confirm="Revoke the key for {{ k.name }}? That screen stops updating."><input type="hidden" name="csrf" value="{{ csrf }}"><button>Revoke</button></form>{% endif %}</td></tr>
+    {% else %}<tr><td colspan="4" class="muted">No display keys yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  <form method="post" action="/admin/board/keys" class="grid3">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label class="span2">Screen name <input name="name" maxlength="60" placeholder="e.g. Hallway TV, Triage tent monitor" required></label>
+    <div class="actions"><button class="primary">Create key</button></div>
+  </form>
+</section>
+{% endblock %}

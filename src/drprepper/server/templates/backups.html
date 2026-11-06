@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Backup &amp; restore</h1>
+<p class="muted">A backup holds the encrypted patient records, audit trail, user accounts and this unit's certificate. It is locked with your backup passphrase, so it's safe to keep on a USB drive or network share, and it can be restored on replacement hardware.</p>
+
+{% if not has_pass %}<div class="flash error">No backup passphrase is set. Scheduled backups will not run until you set one.</div>{% endif %}
+{% if warn %}<div class="flash warn">{{ warn }}</div>{% endif %}
+
+<dl class="card status-row">
+  {% for k in ['daily', 'weekly', 'monthly'] %}
+  <div><dt>{{ k|title }}</dt><dd>{% if cfg[k].enabled %}last {{ (last.get(k) or '')|dt or 'never' }}<br><small class="muted">{% if k in due_now %}{{ 'due now, runs within a minute' if has_pass and cfg.dest else 'due, waiting for passphrase and destination' }}{% else %}next {{ nxt[k].strftime('%a %Y-%m-%d %H:%M') if nxt[k] else '—' }}{% endif %}</small>{% else %}<span class="tag">off</span>{% endif %}</dd></div>
+  {% endfor %}
+  <div class="grow actions">
+    <form method="post" action="/admin/backups/run" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="primary" {{ 'disabled' if not has_pass }}>Back up now</button></form>
+    <form method="post" action="/admin/backups/download" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button {{ 'disabled' if not has_pass }}>Download a backup</button></form>
+  </div>
+</dl>
+
+<h2>Settings</h2>
+<form method="post" action="/admin/backups/settings" class="card grid3">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label class="span3">Off-device destination folder
+    <input name="dest" value="{{ cfg.dest }}" placeholder="/mnt/drp-backup" class="mono">
+    <small class="muted">A mounted USB drive or network share. On the Pi, setup prepares /mnt/drp-backup; in Docker, /backups maps to the backups folder next to docker-compose.yml.</small></label>
+  <label>Backup passphrase <input type="password" name="passphrase" autocomplete="new-password" placeholder="{{ '•••••••• (set; type to change)' if has_pass else '12+ characters' }}"></label>
+  <label>Confirm passphrase <input type="password" name="passphrase2" autocomplete="new-password"></label>
+  <label class="check"><input type="checkbox" name="include_drugs" value="1" {{ 'checked' if cfg.include_drugs }}> Include the drug database <small class="muted">(large; it can always be rebuilt)</small></label>
+
+  <fieldset class="span3 sched">
+    <legend>Schedules</legend>
+    <div class="sched-row">
+      <label class="check"><input type="checkbox" name="daily_enabled" value="1" {{ 'checked' if cfg.daily.enabled }}> Daily</label>
+      <label>at <input type="time" name="daily_time" value="{{ cfg.daily.time }}"></label>
+      <label>keep <input name="daily_keep" value="{{ cfg.daily.keep }}" inputmode="numeric" class="short"> copies</label>
+    </div>
+    <div class="sched-row">
+      <label class="check"><input type="checkbox" name="weekly_enabled" value="1" {{ 'checked' if cfg.weekly.enabled }}> Weekly</label>
+      <label>on <select name="weekly_weekday">{% for d in weekdays %}<option value="{{ loop.index0 }}" {{ 'selected' if cfg.weekly.weekday == loop.index0 }}>{{ d }}</option>{% endfor %}</select></label>
+      <label>at <input type="time" name="weekly_time" value="{{ cfg.weekly.time }}"></label>
+      <label>keep <input name="weekly_keep" value="{{ cfg.weekly.keep }}" inputmode="numeric" class="short"> copies</label>
+    </div>
+    <div class="sched-row">
+      <label class="check"><input type="checkbox" name="monthly_enabled" value="1" {{ 'checked' if cfg.monthly.enabled }}> Monthly</label>
+      <label>on day <input name="monthly_day" value="{{ cfg.monthly.day }}" inputmode="numeric" class="short"></label>
+      <label>at <input type="time" name="monthly_time" value="{{ cfg.monthly.time }}"></label>
+      <label>keep <input name="monthly_keep" value="{{ cfg.monthly.keep }}" inputmode="numeric" class="short"> copies</label>
+    </div>
+    <p class="muted">If the unit was off at a scheduled time, the backup runs when it next starts. If the destination isn't mounted, it retries every 30 minutes and records a warning in the audit trail.</p>
+  </fieldset>
+  <div class="span3 actions"><button class="primary">Save settings</button></div>
+</form>
+
+<h2>Backups at the destination</h2>
+{% if files %}
+<div class="scroll-x"><table>
+  <thead><tr><th>File</th><th>Type</th><th>Made</th><th>Size</th><th></th></tr></thead>
+  <tbody>{% for f in files %}
+    <tr><td class="mono">{{ f.name }}</td><td>{{ f.kind }}</td><td>{{ f.mtime.strftime('%Y-%m-%d %H:%M') }}</td><td class="num">{{ '%.1f'|format(f.size / 1e6) }} MB</td>
+      <td><form method="post" action="/admin/backups/verify" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="name" value="{{ f.name }}"><button>Verify</button></form></td></tr>
+  {% endfor %}</tbody>
+</table></div>
+{% else %}<p class="muted">No backups found{% if cfg.dest %} in {{ cfg.dest }}{% endif %}.</p>{% endif %}
+
+<h2>Recent runs</h2>
+<div class="scroll-x"><table class="compact">
+  <thead><tr><th>When</th><th>Type</th><th>Result</th><th>File</th><th>Size</th></tr></thead>
+  <tbody>{% for r in runs %}
+    <tr class="{{ '' if r.ok else 'abn' }}"><td>{{ r.at|dt }}</td><td>{{ r.kind }}</td><td>{{ 'OK' if r.ok else r.error }}</td><td class="mono">{{ r.file or '' }}</td>
+      <td class="num">{{ '%.1f MB'|format(r.size / 1e6) if r.size else '' }}</td></tr>
+  {% else %}<tr><td colspan="5" class="muted">No backups have run yet.</td></tr>{% endfor %}</tbody>
+</table></div>
+
+<h2 id="verify">Check a backup file</h2>
+{% if verify %}<div class="flash {{ 'info' if verify.ok else 'error' }}">{{ verify.msg }}</div>{% endif %}
+<form method="post" action="/admin/backups/verify" enctype="multipart/form-data" class="card grid3">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label class="span2">Backup file (.drpbak) <input type="file" name="bundle" accept=".drpbak" required></label>
+  <label>Its passphrase <input type="password" name="passphrase" autocomplete="off" placeholder="blank = this unit's"></label>
+  <div class="span3 actions"><button>Verify</button> <span class="muted">Checks the file and opens the records without changing anything.</span></div>
+</form>
+
+{% if safety %}
+<h2 id="safety">Safety copies from earlier restores</h2>
+<div class="card stack">
+  <p class="muted">Each restore keeps the data it replaced, in case the restore was a mistake. They hold patient records: delete them once you're sure.</p>
+  <table class="compact"><thead><tr><th>Copy</th><th>Age</th><th>Size</th><th></th></tr></thead><tbody>
+  {% for x in safety %}
+    <tr><td>{{ x.name }}</td><td>{% if x.days >= 7 %}<span class="tag warn">{{ x.days }} days</span>{% else %}{{ x.days }} days{% endif %}</td>
+      <td>{{ (x.size / 1048576)|round(1) }} MB</td>
+      <td><form method="post" action="/admin/backups/safety-delete" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="name" value="{{ x.name }}">
+        <input name="confirm" placeholder="type DELETE" aria-label="Confirm delete" class="short"> <button>Delete</button></form></td></tr>
+  {% endfor %}
+  </tbody></table>
+</div>
+{% endif %}
+
+<h2 id="restore">Restore</h2>
+<div class="card danger-zone stack">
+  <p><b>Restoring replaces every patient record, user account and audit entry on this unit</b> with the contents of the backup. The current data is kept in a <span class="mono">pre-restore</span> folder on the unit, and everyone is signed out.</p>
+  <form method="post" action="/admin/backups/restore" enctype="multipart/form-data" class="grid3">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>From the destination
+      <select name="name"><option value="">— or upload a file —</option>
+        {% for f in files %}<option value="{{ f.name }}">{{ f.name }}</option>{% endfor %}</select></label>
+    <label class="span2">Upload a backup file <input type="file" name="bundle" accept=".drpbak"></label>
+    <label>Backup passphrase <input type="password" name="passphrase" autocomplete="off" required></label>
+    <label class="check"><input type="checkbox" name="restore_tls" value="1" checked> Also restore the certificate</label>
+    <label>Type <b>RESTORE</b> to confirm <input name="confirm" autocomplete="off" required></label>
+    <div class="span3 actions"><button class="danger">Restore this backup</button></div>
+  </form>
+  <p class="muted">On new hardware you can also restore before first use: <span class="mono">sudo -u drprepper drprepper-manage restore /mnt/drp-backup/FILE.drpbak</span></p>
+</div>
+{% endblock %}

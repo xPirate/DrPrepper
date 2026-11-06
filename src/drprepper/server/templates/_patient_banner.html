@@ -1,0 +1,33 @@
+{% from "_macros.html" import allergy_badge, seen_line, pname, timer, code_badge, status_tag, loc_chip %}
+<section class="pt-banner">
+  {{ seen_line(p) }}
+  <div class="pt-main">
+    <div>
+      <h1><a href="/patients/{{ p.id }}">{{ pname(p) }}</a> {{ status_tag(p) }}</h1>
+      <div class="muted">Patient <b class="pnum">{{ p.pnum }}</b>{% if p.identifying and (p.last_name or p.first_name) %} · {{ p.identifying }}{% endif %}</div>
+    </div>
+    <dl>
+      <div><dt>DOB / age</dt><dd>{{ p.dob or p.age_est or '?' }}</dd></div>
+      <div><dt>Sex</dt><dd>{{ p.sex or '?' }}</dd></div>
+      <div><dt>Weight</dt><dd>{% if p.weight_kg %}{{ p.weight_kg }} kg{% else %}<span class="tag warn">not recorded</span>{% endif %}</dd></div>
+      <div><dt>Assigned to</dt><dd>{{ p.assigned_name or ('Triage queue' if p.status == 'active' else '–') }}</dd></div>
+      <div><dt>Location</dt><dd>{{ loc_chip(p) or '–' }}{% if p.location_name and p.location_at %} <small class="muted">since {{ p.location_at|dt }}</small>{% endif %}</dd></div>
+      <div><dt>Triage time</dt><dd>{% if p.triage_done_at %}{{ minutes_between(p.triage_start_at, p.triage_done_at)|mins }}
+        {% elif p.triage_start_at and p.status == 'active' %}{{ timer(p.queued_at or p.triage_start_at, now_iso or p.triage_start_at, targets, 'waiting ') }}{% else %}–{% endif %}</dd></div>
+      {% if p.code_status %}<div><dt>Code status</dt><dd>{{ code_badge(p) or p.code_status }}</dd></div>{% endif %}
+      <div class="allergy-cell"><dt>Allergies</dt><dd>{{ allergy_badge(p) }}
+        {% if (p.allergies|allergy_status) == 'allergies' %}<span class="allergy-inline">{{ p.allergies }}</span>{% endif %}</dd></div>
+    </dl>
+  </div>
+  {% set cur_meds = (hmeds or [])|selectattr('status', 'in', ['taking', 'prn', 'unknown'])|list %}
+  {% if p.conditions or p.home_meds or cur_meds or (p.pregnancy in ('Pregnant', 'Possibly pregnant')) %}
+  <div class="pt-extra">
+    {% if p.pregnancy in ('Pregnant', 'Possibly pregnant') %}<div><span class="tag warn">{{ p.pregnancy }}</span>{% if p.lmp %} LMP {{ p.lmp }}{% endif %}</div>{% endif %}
+    {% if p.conditions %}<div><b>History:</b> {{ p.conditions }}</div>{% endif %}
+    {% if cur_meds %}<div><b>Home meds:</b> {% for m in cur_meds %}{{ m.name }}{% if m.dose %} {{ m.dose }}{% endif %}{% if m.frequency %} {{ m.frequency }}{% endif %}{% if m.status == 'prn' %} PRN{% endif %}{{ '; ' if not loop.last }}{% endfor %}</div>{% endif %}
+    {% if p.home_meds %}<div><b>Medication notes:</b> {{ p.home_meds }}</div>{% endif %}
+  </div>
+  {% endif %}
+  {% if p.incoming %}<div class="flash error">Incoming patient: pre-arrival report from {{ p.intake_source or 'the touchscreen' }}{% if p.eta_at %}, ETA {{ (p.eta_at)|hm }}{% endif %}. Not yet arrived.</div>{% endif %}
+  {% if access == 'justified' %}<div class="justified">You opened this chart with a stated reason. Your access is recorded.</div>{% endif %}
+</section>

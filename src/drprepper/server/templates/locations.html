@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Locations</h1>
+<p class="muted">Build the layout of your space: triage areas, rooms, ORs, other areas and a morgue. A room can hold beds ("Room 1" with Bed 1–6), or you can add beds on their own. Patients are placed in a bed, or in a room or area that has no beds. Capacity 0 means no limit; going over capacity is allowed but flagged.</p>
+{% if not tops %}
+<div class="card stack">
+  <p><b>No locations yet.</b> Add your first area below, or start from a sample layout (Triage, Room 1–6, OR 1–2, Holding, Morgue) and rename or remove what you don't need.</p>
+  <form method="post" action="/admin/locations/sample"><input type="hidden" name="csrf" value="{{ csrf }}"><button>Start from a sample layout</button></form>
+</div>
+{% endif %}
+{% if tops and not has_triage %}<div class="flash error">There's no active triage area, so new and arriving patients won't be given a location until someone moves them. Add one with type "Triage".</div>{% endif %}
+
+{% for l in tops %}
+<section class="card loc-admin {{ '' if l.active else 'off' }}" id="loc-{{ l.id }}">
+  <form method="post" action="/admin/locations/{{ l.id }}" class="loc-row">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input name="name" value="{{ l.own_name }}" maxlength="40" aria-label="Name">
+    <select name="kind" aria-label="Type">{% for k in KIND_LABELS %}<option value="{{ k }}" {{ 'selected' if l.kind == k }}>{{ KIND_ONE[k] }}</option>{% endfor %}</select>
+    {% if beds.get(l.id) %}<span class="muted">{{ beds[l.id]|length }} beds</span><input type="hidden" name="capacity" value="{{ l.capacity }}">
+    {% else %}<label class="inline-label">Capacity <input name="capacity" type="number" min="0" max="99" value="{{ l.capacity }}"></label>{% endif %}
+    <label class="inline-label">Order <input name="sort" type="number" value="{{ l.sort }}"></label>
+    <label class="check"><input type="checkbox" name="active" value="1" {{ 'checked' if l.active }}> On</label>
+    <span class="muted">{{ here.get(l.id, 0) }} here</span>
+    <button>Save</button>
+  </form>
+  {% if beds.get(l.id) %}
+  <div class="bed-admin">
+    {% for b in beds[l.id] %}
+    <div class="bed-row {{ '' if b.active else 'off' }}">
+      <form method="post" action="/admin/locations/{{ b.id }}" class="loc-row bed-form">
+        <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="kind" value="{{ b.kind }}">
+        <input name="name" value="{{ b.own_name }}" maxlength="40" aria-label="Bed name">
+        <label class="inline-label">Order <input name="sort" type="number" value="{{ b.sort }}"></label>
+        <label class="check"><input type="checkbox" name="active" value="1" {{ 'checked' if b.active }}> On</label>
+        <span class="muted">{{ occ.get(b.id, 0) }} here</span>
+        <button>Save</button>
+      </form>
+      <form method="post" action="/admin/locations/{{ b.id }}/delete" data-confirm="Remove {{ b.name }}? If it has patient history it is turned off instead."><input type="hidden" name="csrf" value="{{ csrf }}"><button class="link">Remove</button></form>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <div class="loc-foot">
+    {% if l.kind != 'morgue' %}
+    <details>
+      <summary>Add beds to {{ l.own_name }}</summary>
+      <form method="post" action="/admin/locations" class="bulk-add">
+        <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="parent_id" value="{{ l.id }}">
+        <label>Name <input name="name" value="Bed" maxlength="40"></label>
+        <label>How many <input name="count" type="number" min="1" max="60" value="{{ 6 if not beds.get(l.id) else 1 }}"></label>
+        <label>Start at <input name="start" type="number" min="0" value="{{ (beds.get(l.id, [])|length) + 1 }}"></label>
+        <button class="primary">Add</button>
+      </form>
+      <p class="muted">Makes "Bed 1", "Bed 2", … inside {{ l.own_name }}. With "How many" = 1 the name is used as typed (e.g. "Window bed").</p>
+    </details>
+    {% endif %}
+    <form method="post" action="/admin/locations/{{ l.id }}/delete" data-confirm="Remove {{ l.own_name }}{% if beds.get(l.id) %} and its beds{% endif %}? If it has patient history it is turned off instead."><input type="hidden" name="csrf" value="{{ csrf }}"><button class="link">Remove {{ l.own_name }}</button></form>
+  </div>
+</section>
+{% endfor %}
+
+<form method="post" action="/admin/locations" class="card grid3">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <h2 class="span3">Add a location</h2>
+  <label>Name <input name="name" maxlength="40" required placeholder="e.g. Room 7, Bay A, Bed, Cot, Decon tent"></label>
+  <label>Type <select name="kind">{% for k in KIND_LABELS %}<option value="{{ k }}" {{ 'selected' if k == 'room' }}>{{ KIND_ONE[k] }}</option>{% endfor %}</select></label>
+  <label>Capacity <span class="muted">(patients; 0 = no limit)</span> <input name="capacity" type="number" min="0" max="99" value="1"></label>
+  <label>How many <input name="count" type="number" min="1" max="60" value="1"></label>
+  <label>Start numbering at <input name="start" type="number" min="0" value="1"></label>
+  <p class="muted">With more than one, a number is added: name "Bed", how many 12 → Bed 1 … Bed 12.</p>
+  <div class="span3 actions"><button class="primary">Add</button></div>
+</form>
+
+<form method="post" action="/admin/locations-targets" class="card grid3">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <h2 class="span3">Triage time targets</h2>
+  <p class="span3 muted">The triage timer runs from arrival to assignment to a provider. It turns amber, then red, at these times.</p>
+  <label>Amber after (minutes) <input name="warn" type="number" min="1" max="599" value="{{ targets.warn }}"></label>
+  <label>Red after (minutes) <input name="alert" type="number" min="2" max="600" value="{{ targets.alert }}"></label>
+  <div class="span3 actions"><button class="primary">Save targets</button></div>
+</form>
+{% endblock %}

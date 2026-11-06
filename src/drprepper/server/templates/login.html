@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Log in · {{ site }}{% endblock %}
+{% block content %}
+<section class="card narrow">
+  <h1>{{ site }}</h1>
+  <form method="post" action="/login" class="stack">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="next" value="{{ next }}">
+    <label>Username <input name="username" autocomplete="username" autocapitalize="none" required autofocus></label>
+    <label>Password <input name="password" type="password" autocomplete="current-password" required></label>
+    <button class="primary">Log in</button>
+  </form>
+  {% if has_drugs and public_reference %}<p class="muted">Drug and overdose reference is available without logging in: <a href="/drugs">Drugs</a> · <a href="/tox">Overdose cards</a></p>{% endif %}
+  <p class="muted"><small>Browser warning about this site? <a href="/trust/drprepper.crt">Install this unit's certificate</a> on your device.</small></p>
+</section>
+{% endblock %}

@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% set can_write = user.role in ('admin', 'triage', 'provider') and e.status == 'open' %}
+{% block content %}
+{% include "_patient_banner.html" %}
+
+<div class="row-head">
+  <h2>Encounter {{ e.started_at|dt }} <span class="tag {{ 'ok' if e.status == 'open' else '' }}">{{ e.status }}</span></h2>
+  <div class="actions">
+    <a class="btn" href="/encounters/{{ e.id }}/print">Handoff summary</a>
+    {% if has_drugs %}<a class="btn od" href="/tox">Overdose cards</a>{% endif %}
+  </div>
+</div>
+<p class="muted">Provider: {{ provider.full_name if provider else '?' }}{% if e.closed_at %} · closed {{ e.closed_at|dt }}{% endif %}</p>
+
+<form method="post" action="/encounters/{{ e.id }}/update" class="card grid2">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>Chief complaint <input name="chief_complaint" value="{{ e.chief_complaint or '' }}" {{ '' if can_write else 'disabled' }}></label>
+  <label>Location <input name="location" value="{{ e.location or '' }}" {{ '' if can_write else 'disabled' }}></label>
+  <label class="span2">History of present illness / mechanism <textarea name="history" rows="3" {{ '' if can_write else 'disabled' }}>{{ e.history or '' }}</textarea></label>
+  <label class="span2">Exam <textarea name="exam" rows="3" placeholder="General, airway, chest, abdomen, neuro, skin, injuries" {{ '' if can_write else 'disabled' }}>{{ e.exam or '' }}</textarea></label>
+  <label>Assessment <textarea name="assessment" rows="3" {{ '' if can_write else 'disabled' }}>{{ e.assessment or '' }}</textarea></label>
+  <label>Plan <textarea name="plan" rows="3" {{ '' if can_write else 'disabled' }}>{{ e.plan or '' }}</textarea></label>
+  <label class="span2">Disposition <input name="disposition" value="{{ e.disposition or '' }}" placeholder="e.g. evacuated by air to ..., released, transferred" {{ '' if can_write else 'disabled' }}></label>
+  {% if can_write %}<div class="span2 actions"><button class="primary">Save encounter</button></div>{% endif %}
+</form>
+
+{% include "_revisions.html" %}
+
+<h2 id="vitals">Vital signs</h2>
+<div class="scroll-x">
+<table class="vitals">
+  <thead><tr><th>Time</th><th>HR</th><th>BP</th><th>RR</th><th>SpO2</th><th>Temp °C</th><th>GCS</th><th>BGL</th><th>Pain</th><th>Notes</th><th>By</th></tr></thead>
+  <tbody>
+  {% for v in vitals %}
+    <tr>
+      <td>{{ v.taken_at|dt }}</td>
+      <td class="{{ 'abn' if v.hr and (v.hr < 50 or v.hr > 120) }}">{{ v.hr if v.hr is not none else '' }}</td>
+      <td class="{{ 'abn' if v.bp_sys and (v.bp_sys < 90 or v.bp_sys > 180) }}">{% if v.bp_sys %}{{ v.bp_sys }}/{{ v.bp_dia or '?' }}{% endif %}</td>
+      <td class="{{ 'abn' if v.rr is not none and (v.rr < 10 or v.rr > 28) }}">{{ v.rr if v.rr is not none else '' }}</td>
+      <td class="{{ 'abn' if v.spo2 and v.spo2 < 92 }}">{{ v.spo2 or '' }}</td>
+      <td class="{{ 'abn' if v.temp_c and (v.temp_c < 35 or v.temp_c > 38.5) }}">{{ v.temp_c or '' }}</td>
+      <td class="{{ 'abn' if v.gcs and v.gcs < 13 }}">{{ v.gcs or '' }}</td>
+      <td class="{{ 'abn' if v.glucose and (v.glucose < 60 or v.glucose > 300) }}">{{ v.glucose or '' }}</td>
+      <td>{{ v.pain if v.pain is not none else '' }}</td>
+      <td>{{ v.notes or '' }}</td><td><small>{{ v.by_name or '' }}</small></td>
+    </tr>
+  {% else %}<tr><td colspan="11" class="muted">No vitals recorded.</td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+{% if can_write %}
+<form method="post" action="/encounters/{{ e.id }}/vitals" class="card vitals-form">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>Time <input name="taken_at" type="datetime-local" data-now></label>
+  <label>HR <input name="hr" inputmode="numeric"></label>
+  <label>BP sys <input name="bp_sys" inputmode="numeric"></label>
+  <label>BP dia <input name="bp_dia" inputmode="numeric"></label>
+  <label>RR <input name="rr" inputmode="numeric"></label>
+  <label>SpO2 <input name="spo2" inputmode="numeric"></label>
+  <label>Temp <span class="unit"><input name="temp" inputmode="decimal"><select name="temp_unit"><option>C</option><option>F</option></select></span></label>
+  <label>GCS <input name="gcs" inputmode="numeric"></label>
+  <label>BGL mg/dL <input name="glucose" inputmode="numeric"></label>
+  <label>Pain 0-10 <input name="pain" inputmode="numeric"></label>
+  <label class="wide">Notes <input name="notes" placeholder="pupils, skin, rhythm..."></label>
+  <div class="actions"><button class="primary">Add vitals</button></div>
+</form>
+{% endif %}
+
+<h2 id="meds">Medications given</h2>
+{% set cur_meds = hmeds|selectattr('status', 'in', ['taking', 'prn', 'unknown'])|list %}
+<div class="home-meds-note">
+  <b>Home medications:</b>
+  {% for m in cur_meds %}<span class="hm">{{ m.name }}{% if m.dose %} {{ m.dose }}{% endif %}{% if m.last_dose %} · last {{ m.last_dose }}{% endif %}</span>{% else %}<span class="muted">none listed</span>{% endfor %}
+  <a href="/patients/{{ p.id }}#home-meds">edit</a>
+</div>
+<table>
+  <thead><tr><th>Time</th><th>Drug</th><th>Dose</th><th>Route</th><th>Indication</th><th>Response</th><th>By</th></tr></thead>
+  <tbody>
+  {% for m in meds %}
+    <tr>
+      <td>{{ m.given_at|dt }}</td>
+      <td>{% if m.drug_id and has_drugs %}<a href="/drugs/{{ m.drug_id }}">{{ m.drug_name }}</a>{% else %}{{ m.drug_name }}{% endif %}
+        {% if m.allergy_override %}<span class="tag danger">allergy override</span>{% endif %}</td>
+      <td>{{ m.dose }}</td><td>{{ m.route }}</td><td>{{ m.indication or '' }}</td>
+      <td>
+        {% if can_write %}
+        <form method="post" action="/encounters/{{ e.id }}/meds/{{ m.id }}/response" class="inline-edit">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <input name="response" value="{{ m.response or '' }}" placeholder="effect?"><button>Save</button>
+        </form>
+        {% else %}{{ m.response or '' }}{% endif %}
+      </td>
+      <td><small>{{ m.by_name or '' }}</small></td>
+    </tr>
+  {% else %}<tr><td colspan="7" class="muted">No medications recorded.</td></tr>{% endfor %}
+  </tbody>
+</table>
+{% if can_write %}
+{% set pm = pending or {} %}
+<form method="post" action="/encounters/{{ e.id }}/meds" class="card grid3 {{ 'alert' if pm.allergy_hits }}">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="hidden" name="drug_id" value="{{ pm.drug_id or '' }}" data-drug-id>
+  {% if pm.allergy_hits %}
+  <div class="span3 flash error">
+    Patient allergy list matches: <b>{{ pm.allergy_hits|join(', ') }}</b>.
+    <label class="check"><input type="checkbox" name="override" value="1" required> I have reviewed the allergy and will give this medication anyway</label>
+  </div>
+  {% endif %}
+  <label class="span2">Drug
+    <input name="drug_name" value="{{ pm.drug_name or '' }}" autocomplete="off" data-drug-search required placeholder="Start typing to search the drug database">
+    <div class="suggest" data-suggest></div></label>
+  <label>Time given <input name="given_at" type="datetime-local" value="{{ pm.given_at or '' }}" data-now></label>
+  <label>Dose <input name="dose" value="{{ pm.dose or '' }}" required placeholder="e.g. 4 mg"></label>
+  <label>Route
+    <input name="route" value="{{ pm.route or '' }}" list="routes" required></label>
+  <label>Indication <input name="indication" value="{{ pm.indication or '' }}"></label>
+  <label class="span3">Response <input name="response" value="{{ pm.response or '' }}"></label>
+  <datalist id="routes">{% for r in ['PO','SL','IV','IO','IM','IN (intranasal)','SC','PR','Neb','Topical','ET'] %}<option value="{{ r }}">{% endfor %}</datalist>
+  <div class="span3 actions"><button class="primary">Record medication</button>
+    {% if (p.allergies|allergy_status) == 'unknown' %}<span class="tag warn">Allergies not recorded — ask the patient, family or check belongings before giving</span>{% endif %}
+    {% if p.weight_kg %}<span class="muted">Weight on file: {{ p.weight_kg }} kg</span>{% else %}<span class="tag warn">No weight on file — weight-based doses need one</span>{% endif %}</div>
+</form>
+{% endif %}
+
+<h2 id="notes">Notes</h2>
+{% for n in notes %}
+<article class="note"><header>{{ n.created_at|dt }} · {{ n.by_name or '' }}</header><p>{{ n.body }}</p></article>
+{% else %}<p class="muted">No notes.</p>{% endfor %}
+{% if can_write %}
+<form method="post" action="/encounters/{{ e.id }}/notes" class="card stack">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <textarea name="body" rows="3" placeholder="Progress note, reassessment, handoff..." required></textarea>
+  <div class="actions"><button>Add note</button></div>
+</form>
+{% endif %}
+
+{% if user.role in ('admin', 'triage', 'provider') %}
+<section class="card danger-zone">
+  {% if e.status == 'open' %}
+  <form method="post" action="/encounters/{{ e.id }}/close" class="grid3" data-confirm="Close this encounter? It becomes read-only until reopened.">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label class="span2">Final disposition <input name="disposition" value="{{ e.disposition or '' }}"></label>
+    <div class="actions"><button>Close encounter</button></div>
+  </form>
+  {% else %}
+  <form method="post" action="/encounters/{{ e.id }}/reopen" class="inline">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><button>Reopen encounter</button>
+  </form>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+{% include "_patient_banner.html" %}
+<h2>Record death</h2>
+<form method="post" action="/patients/{{ p.id }}/death" class="card grid2">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>Time of death <input name="time_of_death" type="datetime-local" value="{{ f.time_of_death or '' }}" data-now required></label>
+  <label>Pronounced by <input name="pronounced_by" value="{{ f.pronounced_by or user.full_name }}" required></label>
+  <label>Move to
+    <select name="morgue_id">{% for m in morgues %}<option value="{{ m.id }}" {{ 'selected' if f.morgue_id == m.id|string }}>{{ m.name }}</option>{% endfor %}
+      <option value="" {{ 'selected' if not morgues }}>Leave in place / no morgue area</option></select></label>
+  <label>Next of kin notified
+    <select name="nok_notified"><option value=""></option>{% for k, v in NOK.items() %}<option value="{{ k }}" {{ 'selected' if f.nok_notified == k }}>{{ v }}</option>{% endfor %}</select></label>
+  <label>Tag / body ID number <input name="tag_number" value="{{ f.tag_number or '' }}"></label>
+  <label>Personal effects <input name="effects" value="{{ f.effects or '' }}" placeholder="e.g. wallet and phone bagged, with body"></label>
+  <label class="span2">Circumstances and findings <textarea name="death_notes" rows="4" placeholder="Events, resuscitation attempted and stopped, findings at pronouncement">{{ f.death_notes or '' }}</textarea></label>
+  <label class="check span2"><input type="checkbox" name="confirm" value="1"> I confirm this patient has been pronounced dead.</label>
+  <div class="span2 actions"><button class="primary">Record death</button> <a class="btn" href="/patients/{{ p.id }}">Cancel</a></div>
+</form>
+{% endblock %}

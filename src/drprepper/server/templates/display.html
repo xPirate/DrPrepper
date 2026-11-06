@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "_theme_preview.html" import preview %}
+{% block content %}
+<h1>Display</h1>
+<p class="muted">Your own look for the console. It follows you to any device you sign in on. The header button switches between automatic, light and dark at any time.</p>
+<form method="post" action="/account/display" class="stack">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <fieldset class="card">
+    <legend>Light or dark</legend>
+    <div class="actions">
+      <label class="radio"><input type="radio" name="mode" value="" {{ 'checked' if not user.mode }}> Unit default ({{ b.mode }})</label>
+      {% for m in modes %}<label class="radio"><input type="radio" name="mode" value="{{ m }}" {{ 'checked' if user.mode == m }}> {{ {'auto': 'Automatic (follow this device)', 'light': 'Light', 'dark': 'Dark'}[m] }}</label>{% endfor %}
+    </div>
+  </fieldset>
+  {% if b.allow_user_theme %}
+  <fieldset class="card">
+    <legend>Theme</legend>
+    <div class="theme-grid">
+      <label class="theme-opt">
+        <span class="to-head"><input type="radio" name="theme" value="" {{ 'checked' if not user.theme }}> Unit default ({{ themes[b.theme].name }})</span>
+        <span class="to-blurb">Whatever the administrator has chosen for this unit.</span>
+      </label>
+      {% for key, t in themes.items() %}
+      <label class="theme-opt">
+        <span class="to-head"><input type="radio" name="theme" value="{{ key }}" {{ 'checked' if user.theme == key }}> {{ t.name }}</span>
+        <span class="tp-pair">{{ preview(key, t, 'light') }}{{ preview(key, t, 'dark') }}</span>
+        <span class="to-blurb">{{ t.blurb }}</span>
+      </label>
+      {% endfor %}
+    </div>
+  </fieldset>
+  {% else %}
+  <p class="muted">The administrator has set one theme ({{ themes[b.theme].name }}) for everyone on this unit.</p>
+  {% endif %}
+  <div class="actions"><button class="primary">Save</button></div>
+</form>
+{% endblock %}

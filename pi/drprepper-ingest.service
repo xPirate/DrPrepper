@@ -1,0 +1,19 @@
+[Unit]
+Description=Dr.Prepper: download and build the full FDA drug database
+Documentation=file:///opt/drprepper/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=drprepper
+Group=drprepper
+EnvironmentFile=/etc/default/drprepper
+# --if-sample: only replaces the sample. Run `sudo systemctl start drprepper-ingest` again after
+# deleting the cache to refresh, or use `drprepper-ingest --out /var/lib/drprepper/drugs.db` directly.
+ExecStart=/usr/bin/flock -n /var/lib/drprepper/.ingest.lock /opt/drprepper/venv/bin/drprepper-ingest \
+  --out /var/lib/drprepper/drugs.db --cache /var/lib/drprepper/cache --if-sample
+UMask=0022
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=6h

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Date and time</h1>
+<div class="card stack">
+  <p>Unit clock: <b>{{ server_now.strftime('%Y-%m-%d %H:%M') }}</b> · time zone <b>{{ tz_label }}</b></p>
+  <p data-device-clock data-server="{{ server_now.isoformat() }}" class="muted">This device: …</p>
+  <p class="muted">The Pi keeps time with its real-time clock battery; there's no internet time in the field. If the unit clock is wrong, fix the clock itself (on the Pi: <code>sudo date -s "2026-10-22 16:45"</code> then <code>sudo hwclock -w</code>). The time zone below only changes how times are written and shown.</p>
+</div>
+<form method="post" action="/admin/time" class="card grid2">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <h2 class="span2">Time zone</h2>
+  <label>Common
+    <select data-tz-pick><option value="">Choose…</option>{% for z, l in common %}<option value="{{ z }}" {{ 'selected' if z == tz }}>{{ l }}</option>{% endfor %}</select></label>
+  <label>Time zone name <span class="muted">(any IANA zone, e.g. America/Chicago)</span>
+    <input name="timezone" list="tz-all" value="{{ tz }}" required autocomplete="off">
+    <datalist id="tz-all">{% for z in zones %}<option value="{{ z }}">{% endfor %}</datalist></label>
+  <p class="span2 muted">Used for every time the console, audit trail, printouts, backup schedule and touchscreen clock show. Times already recorded keep their exact moment and are shown in the new zone. Daylight saving is handled automatically.</p>
+  <div class="span2 actions"><button class="primary">Save time zone</button></div>
+</form>
+{% endblock %}

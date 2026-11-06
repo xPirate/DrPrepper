@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row-head">
+  <h1>Audit trail</h1>
+  <div class="actions">
+    <a class="btn" href="/admin/audit/export.csv{{ '?' ~ qs if qs }}">Export CSV</a>
+    <form method="post" action="/admin/audit/verify" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button>Verify chain</button></form>
+  </div>
+</div>
+{% if verify %}<div class="flash {{ 'info' if verify.ok else 'error' }}">{{ verify.message }}</div>{% endif %}
+<div class="card review">
+  <b>Last {{ review.hours }} hours:</b>
+  {% for label, n in review.counts.items() %}<span class="tag {{ 'warn' if n }}">{{ n }} {{ label }}</span> {% else %}<span class="muted">nothing that needs a look.</span>{% endfor %}
+  {% for f in review.flags %}<div class="flash error"><b>{{ f.name }}</b> opened {{ f.n }} unassigned charts within an hour. <a href="/admin/audit?user_id={{ f.user_id }}&action=patient_view_justified">Review their reasons</a>.</div>{% endfor %}
+</div>
+
+<form method="get" class="card filters">
+  <label>User <select name="user_id"><option value="">Anyone</option>
+    {% for u in people %}<option value="{{ u.id }}" {{ 'selected' if flt.user_id == u.id|string }}>{{ u.full_name }}</option>{% endfor %}</select></label>
+  <label>Patient no. <input name="pnum" value="{{ flt.pnum }}" inputmode="numeric" maxlength="8"></label>
+  <label>Action <select name="action"><option value="">Any</option>
+    {% for a in actions %}<option {{ 'selected' if flt.action == a }}>{{ a }}</option>{% endfor %}</select></label>
+  <label>Level <select name="severity"><option value="">Any</option>
+    {% for v in ['warning', 'notice', 'info'] %}<option {{ 'selected' if flt.severity == v }}>{{ v }}</option>{% endfor %}</select></label>
+  <label>From <input type="date" name="date_from" value="{{ flt.date_from }}"></label>
+  <label>To <input type="date" name="date_to" value="{{ flt.date_to }}"></label>
+  <label class="grow">Contains <input name="text" value="{{ flt.text }}" placeholder="name, reason, drug…"></label>
+  <div class="actions"><button class="primary">Filter</button> <a class="btn" href="/admin/audit">Clear</a></div>
+</form>
+
+<p class="muted">{{ total }} entr{{ 'y' if total == 1 else 'ies' }}{% if total > per %} · page {{ page }}{% endif %}. <span class="sev notice">notice</span> marks access without assignment and admin changes; <span class="sev warning">warning</span> marks failed logins, overrides and failures.</p>
+<ol class="audit">
+  {% for a in rows %}
+  <li class="sev-{{ a.severity }}">
+    <span class="msg">{{ a.message }}</span>
+    <span class="meta">#{{ a.id }}{% if a.pnum %} · <a href="/admin/audit?pnum={{ a.pnum }}">patient {{ a.pnum }}</a>{% endif %}{% if a.client %} · {{ a.client }}{% endif %}{% if not a.hash %} · <i>sealing…</i>{% endif %}</span>
+  </li>
+  {% else %}<li class="muted">No entries match.</li>{% endfor %}
+</ol>
+<div class="actions">
+  {% if page > 1 %}<a class="btn" href="?page={{ page - 1 }}{{ '&' ~ qs if qs }}">← Newer</a>{% endif %}
+  {% if page * per < total %}<a class="btn" href="?page={{ page + 1 }}{{ '&' ~ qs if qs }}">Older →</a>{% endif %}
+</div>
+{% endblock %}

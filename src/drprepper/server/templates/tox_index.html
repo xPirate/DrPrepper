@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Overdose cards · {{ site }}{% endblock %}
+{% block content %}
+<h1>Overdose &amp; toxicology cards</h1>
+<p class="muted">{{ drug_meta.get('disclaimer', '') }}</p>
+{% for cat, cards in groups.items() %}
+<h2>{{ cat }}</h2>
+<ul class="cards">
+  {% for t in cards %}<li class="toxhit"><a href="/tox/{{ t.slug }}"><b>{{ t.name }}</b><span>{{ t.summary }}</span></a></li>{% endfor %}
+</ul>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+{% include "_patient_banner.html" %}
+<div class="row-head">
+  <h2>{{ STATUS_LABELS[d.kind] }}</h2>
+  <a class="btn primary" href="/patients/{{ p.id }}/disposition/{{ d.id }}?print=1">Print</a>
+</div>
+<div class="card disp">{% include "_disposition_body.html" %}</div>
+<p><a href="/patients/{{ p.id }}">← Back to the chart</a></p>
+{% endblock %}

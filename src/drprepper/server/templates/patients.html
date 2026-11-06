@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% from "_macros.html" import allergy_badge, assigned, pname, code_badge, loc_chip, status_tag %}
+{% block content %}
+<div class="row-head">
+  <h1>All patients</h1>
+  {% if user.role in ('admin', 'triage', 'provider') %}<a class="btn primary" href="/patients/new">+ New patient</a>{% endif %}
+</div>
+<form method="get" class="searchbar">
+  <label class="sr" for="pq">Search patients</label>
+  <input id="pq" name="q" value="{{ q }}" placeholder="Name, patient number or description" autofocus>
+  <label class="sr" for="pshow">Show</label>
+  <select id="pshow" name="show">{% for k, v in [('active', 'In care'), ('left', 'Left care'), ('all', 'Everyone')] %}<option value="{{ k }}" {{ 'selected' if show == k }}>{{ v }}</option>{% endfor %}</select>
+  <button>Search</button>
+</form>
+<div class="scroll-x"><table>
+  <thead><tr><th>No.</th><th>Name / description</th><th>Allergies</th><th>Age / sex</th><th>Location / status</th><th>Assigned to</th><th>Last seen</th></tr></thead>
+  <tbody>
+  {% for p in rows %}
+    {% set mine = user.role == 'triage' or p.assigned_to == user.id %}
+    <tr>
+      <td class="num"><a href="/patients/{{ p.id }}">{{ p.pnum }}</a></td>
+      <td><a href="/patients/{{ p.id }}">{{ pname(p) }}</a>{% if p.incoming %} <span class="tag danger">incoming</span>{% endif %}{% if not mine %} <span class="lock" title="Opening this chart asks for a reason">reason required</span>{% endif %}</td>
+      <td>{{ allergy_badge(p) }} {{ code_badge(p) }}</td>
+      <td>{{ p.dob or p.age_est or '' }}{% if p.sex %} · {{ p.sex }}{% endif %}</td>
+      <td>{{ status_tag(p) }} {{ loc_chip(p) }}</td>
+      <td>{{ assigned(p) }}</td>
+      <td>{% if p.last_seen_at %}{{ p.seen_name }} <small class="muted">{{ p.last_seen_at|dt }}</small>{% endif %}</td>
+    </tr>
+  {% else %}<tr><td colspan="7" class="muted">No patients found.</td></tr>{% endfor %}
+  </tbody>
+</table></div>
+{% endblock %}

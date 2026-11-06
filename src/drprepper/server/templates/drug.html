@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}{{ d.display }} · {{ site }}{% endblock %}
+{% block content %}
+<p><a href="/drugs" data-back>← Back</a></p>
+<h1>{{ d.display }} <span class="tag">{{ d.kind }}</span></h1>
+<p class="muted">{{ d.route }}{% if d.brands %} · Brands: {{ d.brands }}{% endif %}</p>
+{% if d.pharm_class %}<p><small>{{ d.pharm_class }}</small></p>{% endif %}
+{% if d.tox %}
+<div class="flash error">Overdose card:
+  {% for t in d.tox %}<a href="/tox/{{ t.slug }}"><b>{{ t.name }}</b></a>{% if not loop.last %} · {% endif %}{% endfor %}</div>
+{% endif %}
+<nav class="toc">{% for sct in d.sections %}<a href="#{{ sct.key }}">{{ sct.title }}</a>{% endfor %}</nav>
+{% for sct in d.sections %}
+<section class="label-sec {{ 'boxed' if sct.key == 'boxed_warning' }} {{ 'od' if sct.key == 'overdosage' }}" id="{{ sct.key }}">
+  <h2>{{ sct.title }}</h2>
+  {% for para in sct.body|chunks %}<p class="pre">{{ para }}</p>{% endfor %}
+</section>
+{% endfor %}
+<p class="muted"><small>Source: FDA Structured Product Label{% if d.set_id %} (set id {{ d.set_id }}){% endif %}, effective {{ d.effective or '?' }}. {{ d.label_count }} manufacturer label(s) merged; representative: {{ d.manufacturer or '?' }}.</small></p>
+{% endblock %}

@@ -1,0 +1,54 @@
+# docker compose up --build                 -> EHR at https://localhost:8443, touchscreen at http://localhost:6080/vnc.html
+# docker compose logs web                   -> first admin's one-time password
+# docker compose run --rm ingest            -> rebuild / refresh the full FDA drug database (also runs automatically on first start)
+# docker compose run --rm web test          -> run the test suite
+# docker compose --profile syslog up -d     -> also start a test syslog receiver (see README: Syslog)
+services:
+  web:
+    build: .
+    command: ["web"]
+    ports: ["127.0.0.1:8443:8443"]       # this computer only; use "8443:8443" to test from phones on your Wi-Fi
+    environment:
+      DRP_SITE_NAME: "Dr.Prepper Field EHR (dev)"
+      DRP_BACKUP_DEST: "/backups"          # off-device stand-in: ./backups on your computer
+      DRP_AUTO_INGEST: "1"                 # download the full FDA drug database in the background on first start
+      DRP_TZ: "${DRP_TZ:-UTC}"             # starting time zone; change it any time under Admin > Date & time
+      DRP_ADMIN_LAST: "Admin"
+      DRP_ADMIN_FIRST: "Site"
+    volumes:
+      - drp-data:/data
+      - drp-secrets:/secrets
+      - ./backups:/backups
+    restart: unless-stopped
+
+  touch:
+    build: .
+    command: ["touch"]
+    ports: ["127.0.0.1:6080:6080"]       # touchscreen preview (no password): keep it on this computer
+    environment:
+      DRP_EHR_URL: "https://localhost:8443"     # shown on the About screen
+      DRP_INTAKE_URL: "https://web:8443"        # where incoming-patient reports are sent
+      DRP_KIOSK_DIR: "/data/kiosk"              # device token + pinned certificate (written by web)
+    volumes:
+      - drp-data:/data
+    depends_on: [web]
+    restart: unless-stopped
+
+  ingest:
+    build: .
+    command: ["ingest"]
+    profiles: ["tools"]
+    volumes:
+      - drp-data:/data
+
+  syslog-test:
+    build: .
+    command: ["syslog-test"]
+    profiles: ["syslog"]
+    volumes:
+      - ./syslog-test:/certs           # receiver's self-signed cert lands here; paste it as the CA in Admin > Syslog
+    restart: unless-stopped
+
+volumes:
+  drp-data:
+  drp-secrets:
