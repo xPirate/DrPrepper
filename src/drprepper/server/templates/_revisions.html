@@ -1,0 +1,13 @@
+{% if revs %}
+<details class="revs">
+  <summary>Edit history ({{ revs|length }} change{{ 's' if revs|length != 1 }})</summary>
+  <table class="compact">
+    <thead><tr><th>When</th><th>Who</th><th>Field</th><th>Was</th><th>Now</th></tr></thead>
+    <tbody>{% for r in revs %}
+      <tr><td class="nowrap">{{ r.at|dt }}</td><td>{{ r.by_name or '' }}</td><td>{{ (HISTORY_FIELDS.get(r.field) or [r.field.replace('_', ' ')])[0] }}</td>
+        <td class="pre rev-old">{{ r.old_value or '—' }}</td><td class="pre">{{ r.new_value or '—' }}</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  <p class="muted">Earlier values are kept for the record and can't be edited.</p>
+</details>
+{% endif %}

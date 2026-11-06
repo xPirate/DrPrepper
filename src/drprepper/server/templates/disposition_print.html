@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>{{ STATUS_LABELS[d.kind] }} {{ p.pnum }}</title>
+<link rel="stylesheet" href="/static/print.css"><script src="/static/app.js" defer></script></head>
+<body>
+<p class="noprint"><a href="/patients/{{ p.id }}/disposition/{{ d.id }}">← Back</a> · <button data-print>Print</button></p>
+<h1>{{ {'deceased': 'Record of death', 'ama': 'Leaving against medical advice', 'transfer': 'Transfer record', 'lwbs': 'Left without being seen'}.get(d.kind, 'Discharge record') }}</h1>
+<table class="kv">
+  <tr><th>Patient</th><td>{{ p.last_name or '' }}{% if p.first_name %}, {{ p.first_name }}{% endif %} {% if p.identifying %}({{ p.identifying }}){% endif %}</td>
+      <th>Patient no.</th><td><b>{{ p.pnum }}</b></td></tr>
+  <tr><th>DOB / age</th><td>{{ p.dob or p.age_est or '?' }}</td><th>Sex</th><td>{{ p.sex or '?' }}</td></tr>
+  <tr><th>ALLERGIES</th><td colspan="3"><b>{{ p.allergies or 'Not recorded' }}</b></td></tr>
+  <tr><th>Provider</th><td colspan="3">{{ p.assigned_name or '' }}</td></tr>
+</table>
+{% include "_disposition_body.html" %}
+{% if d.kind == 'ama' %}
+<p class="attest">I have been told about my condition and the risks of leaving, including the risk of death or permanent disability.
+I have been offered other options and I know I can come back at any time. I am choosing to leave against medical advice.</p>
+<div class="sigs">
+  <div>Patient signature<span></span></div><div>Date / time<span></span></div>
+  <div>Provider: {{ d.by_name or '' }}<span></span></div><div>Witness: {{ d.witness or '' }}<span></span></div>
+</div>
+{% elif d.kind == 'deceased' %}
+<div class="sigs"><div>Pronounced by: {{ d.pronounced_by }}<span></span></div><div>Date / time<span></span></div></div>
+{% elif d.kind in ('discharged', 'transfer') %}
+<div class="sigs"><div>Patient or receiving clinician<span></span></div><div>Provider: {{ d.by_name or '' }}<span></span></div></div>
+{% endif %}
+<p class="foot">Printed {{ clock.strftime('%Y-%m-%d %H:%M %Z') }} by {{ user.full_name }} · {{ site }}</p>
+</body></html>

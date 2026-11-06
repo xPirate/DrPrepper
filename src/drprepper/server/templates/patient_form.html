@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{% if p.id %}Edit patient {{ p.pnum }}{% else %}New patient{% endif %}</h1>
+<form method="post" action="{{ action }}" class="card grid2">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>Last name <input name="last_name" value="{{ p.last_name or '' }}"></label>
+  <label>First name <input name="first_name" value="{{ p.first_name or '' }}"></label>
+  <label class="span2">Identifying description (required if name unknown)
+    <input name="identifying" value="{{ p.identifying or '' }}" placeholder="e.g. Unknown male #3, red jacket, found at trailhead"></label>
+  <label>Date of birth <input name="dob" type="date" value="{{ p.dob or '' }}"></label>
+  <label>Estimated age <input name="age_est" value="{{ p.age_est or '' }}" placeholder="e.g. ~40, adolescent"></label>
+  <label>Sex
+    <select name="sex">
+      {% for v in ['', 'Male', 'Female', 'Other', 'Unknown'] %}<option {% if (p.sex or '') == v %}selected{% endif %}>{{ v }}</option>{% endfor %}
+    </select></label>
+  <label>Weight
+    <span class="unit"><input name="weight_kg" inputmode="decimal" value="{{ p.weight_kg or '' }}">
+      <select name="weight_unit"><option value="kg">kg</option><option value="lb">lb</option></select></span></label>
+  <label class="span2">Allergies, comma separated, with reaction in brackets. Enter <b>NKDA</b> if none, or <b>Unknown</b> if you can't find out.
+    <input name="allergies" value="{{ p.allergies or '' }}" class="allergy"></label>
+  <label class="span2">Past medical history <textarea name="conditions" rows="2">{{ p.conditions or '' }}</textarea></label>
+  <label class="span2">Medication notes <span class="muted">(quick notes; list each drug under Home medications on the chart so it's checked)</span> <textarea name="home_meds" rows="2">{{ p.home_meds or '' }}</textarea></label>
+  <label class="span2">Contact / next of kin <input name="contact" value="{{ p.contact or '' }}"></label>
+  {% if not p.id and user.role in ('triage', 'admin') and people %}
+  <label class="span2">Assign to
+    <select name="assign_to"><option value="">Leave in triage queue</option>
+      {% for u in people %}<option value="{{ u.id }}">{{ u.full_name }}</option>{% endfor %}</select></label>
+  {% elif not p.id and user.role == 'provider' %}
+  <p class="span2 muted">Patients you create are assigned to you.</p>
+  {% endif %}
+  <div class="span2 actions">
+    <button class="primary">Save</button>
+    <a class="btn" href="{{ '/patients/' ~ p.id if p.id else '/patients' }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

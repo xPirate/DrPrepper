@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}{{ t.name }} · {{ site }}{% endblock %}
+{% block content %}
+<p><a href="/tox">← All overdose cards</a></p>
+<h1>{{ t.name }}</h1>
+{% if t.review_status == 'draft' %}<div class="flash warn">DRAFT: not yet reviewed by a medical director.</div>
+{% elif t.review_status %}<p class="muted"><small>Review: {{ t.review_status }}</small></p>{% endif %}
+<p class="summary">{{ t.summary }}</p>
+{% for sct in t.sections %}
+<section class="tox-sec {{ 'avoid' if sct.title|lower == 'avoid' }}">
+  <h2>{{ sct.title }}</h2>
+  <ul>{% for item in sct['items'] %}<li>{{ item }}</li>{% endfor %}</ul>
+</section>
+{% endfor %}
+{% if t.aka %}<p class="muted"><small>Also searched as: {{ t.aka }}</small></p>{% endif %}
+<p class="muted"><small>{{ drug_meta.get('disclaimer', '') }}</small></p>
+{% endblock %}

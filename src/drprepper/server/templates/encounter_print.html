@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Handoff {{ p.pnum }}</title>
+<link rel="stylesheet" href="/static/print.css"><script src="/static/app.js" defer></script></head>
+<body>
+<p class="noprint"><a href="/encounters/{{ e.id }}">← Back</a> · <button data-print>Print</button></p>
+<h1>Patient handoff summary</h1>
+<table class="kv">
+  <tr><th>Patient</th><td>{{ p.last_name or '' }}{% if p.first_name %}, {{ p.first_name }}{% endif %} {% if p.identifying %}({{ p.identifying }}){% endif %}</td>
+      <th>Patient no.</th><td><b>{{ p.pnum }}</b></td></tr>
+  <tr><th>DOB / age</th><td>{{ p.dob or p.age_est or '?' }}</td><th>Sex</th><td>{{ p.sex or '?' }}</td></tr>
+  <tr><th>Weight</th><td>{{ (p.weight_kg ~ ' kg') if p.weight_kg else '?' }}</td><th>ALLERGIES</th><td><b>{{ p.allergies or 'Not recorded' }}</b></td></tr>
+  {% if p.code_status %}<tr><th>CODE STATUS</th><td colspan="3"><b>{{ p.code_status }}</b>{% if p.advance_directive %} · {{ p.advance_directive }}{% endif %}</td></tr>{% endif %}
+  <tr><th>Medical history</th><td colspan="3">{{ p.conditions or '' }}{% if p.surgical_hx %}<br>Surgical: {{ p.surgical_hx }}{% endif %}</td></tr>
+  <tr><th>Home meds</th><td colspan="3">{% for m in hmeds if m.status in ('taking', 'prn', 'unknown') %}{{ m.name }}{% if m.dose %} {{ m.dose }}{% endif %}{% if m.frequency %} {{ m.frequency }}{% endif %}{% if m.last_dose %} (last {{ m.last_dose }}){% endif %}{{ '; ' if not loop.last }}{% endfor %}{% if p.home_meds %}<br>{{ p.home_meds }}{% endif %}</td></tr>
+  {% if p.pregnancy in ('Pregnant', 'Possibly pregnant') %}<tr><th>Pregnancy</th><td colspan="3"><b>{{ p.pregnancy }}</b>{% if p.lmp %} · LMP {{ p.lmp }}{% endif %}</td></tr>{% endif %}
+  <tr><th>Encounter</th><td>{{ e.started_at|dt }} ({{ e.status }})</td><th>Location</th><td>{{ p.location_name or e.location or '' }}</td></tr>
+  <tr><th>Opened by</th><td>{{ provider.full_name if provider else '?' }}</td><th>Assigned to</th><td>{{ p.assigned_name or 'Triage queue' }}</td></tr>
+  <tr><th>Last seen by</th><td colspan="3">{{ p.seen_name or '?' }} · {{ p.last_seen_at|dt }}</td></tr>
+</table>
+<h2>Chief complaint</h2><p>{{ e.chief_complaint or '' }}</p>
+{% if e.history %}<h2>History of present illness</h2><p class="pre">{{ e.history }}</p>{% endif %}
+{% if e.exam %}<h2>Exam</h2><p class="pre">{{ e.exam }}</p>{% endif %}
+{% if e.assessment %}<h2>Assessment</h2><p class="pre">{{ e.assessment }}</p>{% endif %}
+{% if e.plan %}<h2>Plan</h2><p class="pre">{{ e.plan }}</p>{% endif %}
+<h2>Vital signs</h2>
+<table class="grid"><tr><th>Time</th><th>HR</th><th>BP</th><th>RR</th><th>SpO2</th><th>T °C</th><th>GCS</th><th>BGL</th><th>Pain</th><th>Notes</th></tr>
+{% for v in vitals %}<tr><td>{{ v.taken_at|dt }}</td><td>{{ v.hr or '' }}</td><td>{% if v.bp_sys %}{{ v.bp_sys }}/{{ v.bp_dia or '?' }}{% endif %}</td><td>{{ v.rr if v.rr is not none else '' }}</td><td>{{ v.spo2 or '' }}</td><td>{{ v.temp_c or '' }}</td><td>{{ v.gcs or '' }}</td><td>{{ v.glucose or '' }}</td><td>{{ v.pain if v.pain is not none else '' }}</td><td>{{ v.notes or '' }}</td></tr>
+{% else %}<tr><td colspan="10">None</td></tr>{% endfor %}</table>
+<h2>Medications given</h2>
+<table class="grid"><tr><th>Time</th><th>Drug</th><th>Dose</th><th>Route</th><th>Indication</th><th>Response</th><th>By</th></tr>
+{% for m in meds %}<tr><td>{{ m.given_at|dt }}</td><td>{{ m.drug_name }}{% if m.allergy_override %} (ALLERGY OVERRIDE){% endif %}</td><td>{{ m.dose }}</td><td>{{ m.route }}</td><td>{{ m.indication or '' }}</td><td>{{ m.response or '' }}</td><td>{{ m.by_name or '' }}</td></tr>
+{% else %}<tr><td colspan="7">None</td></tr>{% endfor %}</table>
+{% if notes %}<h2>Notes</h2>{% for n in notes %}<p><b>{{ n.created_at|dt }} {{ n.by_name or '' }}:</b> <span class="pre">{{ n.body }}</span></p>{% endfor %}{% endif %}
+<h2>Disposition</h2><p>{{ e.disposition or '' }}</p>
+<p class="foot">Printed {{ clock.strftime('%Y-%m-%d %H:%M %Z') }} by {{ user.full_name }} · {{ site }}</p>
+</body></html>

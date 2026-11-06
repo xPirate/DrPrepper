@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en" data-theme="{{ theme }}" data-mode="{{ mode }}"{% if brand.accent %} data-brand-accent{% endif %}>
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Status · {{ brand_title }}</title>
+<link rel="stylesheet" href="/theme.css?v={{ theme_ver }}">
+<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/board.css">
+<script src="/static/app.js" defer></script>
+</head>
+<body class="board" data-board data-refresh="{{ refresh }}" data-offset="{{ offset_min }}">
+<header class="bd-head">
+  <div class="bd-brand">{% if brand.icon and brand.show in ('both', 'icon') %}<img src="/branding/icon?v={{ brand.icon_ver }}" alt="">{% endif %}
+    {% if brand.show != 'icon' or not brand.icon %}<span>{{ brand_title }}</span>{% endif %}</div>
+  <div class="bd-clock"><b data-board-clock>{{ now_iso|hm }}</b><small data-board-updated>updated {{ now_iso|hm }}</small></div>
+</header>
+<main id="board-body">{% include "_board_body.html" %}</main>
+</body>
+</html>

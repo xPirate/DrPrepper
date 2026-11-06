@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% from "_macros.html" import assign_form, move_form, timer %}
+{% block content %}
+{% include "_patient_banner.html" %}
+{% set can_write = user.role in ('admin', 'triage', 'provider') %}
+{% set active = p.status == 'active' and not p.incoming %}
+
+<h2 id="location">Location and status</h2>
+<div class="card stack">
+  {% if p.incoming %}
+    <p>Incoming. The patient is placed in triage when marked as arrived.</p>
+  {% elif active %}
+    <p>{% if p.location_name %}In <b>{{ p.location_name }}</b> since {{ p.location_at|dt }} ({{ timer(p.location_at, now_iso) }}){% else %}<span class="tag warn">No location set</span>{% endif %}</p>
+    {% if can_move %}
+    <div class="loc-actions">
+      {{ move_form(p, locs, csrf, '/patients/' ~ p.id ~ '#location') }}
+      <a class="btn" href="/patients/{{ p.id }}/discharge">Discharge</a>
+      <a class="btn" href="/patients/{{ p.id }}/discharge?kind=ama">Left AMA</a>
+      <a class="btn" href="/patients/{{ p.id }}/discharge?kind=transfer">Transfer / evacuate</a>
+      <a class="btn" href="/patients/{{ p.id }}/discharge?kind=lwbs">Left without being seen</a>
+      <a class="btn dark" href="/patients/{{ p.id }}/death">Record death</a>
+    </div>
+    {% endif %}
+  {% else %}
+    {% set d = disps|selectattr('undone_at', 'none')|first %}
+    <p><b>{{ STATUS_LABELS[p.status] }}</b>{% if p.disposition_at %} · {{ p.disposition_at|dt }}{% endif %}{% if p.location_name %} · {{ p.location_name }}{% endif %}
+      {% if d %} · recorded by {{ d.by_name }} · <a href="/patients/{{ p.id }}/disposition/{{ d.id }}">View record</a>{% endif %}</p>
+    {% if user.role in ('triage', 'admin') %}
+    <details>
+      <summary>Readmit or correct</summary>
+      <form method="post" action="/patients/{{ p.id }}/readmit" class="grid3">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <label>Why
+          <select name="why" required><option value="">Choose…</option>
+            {% if p.status != 'deceased' %}<option value="returned">Patient returned for care (new triage)</option>{% endif %}
+            <option value="error">Recorded in error (undo)</option></select></label>
+        <label class="span2">Explanation <input name="note" required minlength="5" maxlength="300"></label>
+        <div class="span3 actions"><button class="primary">Readmit / correct</button></div>
+      </form>
+    </details>
+    {% endif %}
+  {% endif %}
+  {% if moves %}
+  <details>
+    <summary>Movement history ({{ moves|length }})</summary>
+    <table class="compact">
+      <thead><tr><th>When</th><th>Change</th><th>By</th><th>Note</th></tr></thead>
+      <tbody>{% for m in moves %}
+        <tr><td>{{ m.at|dt }}</td>
+          <td>{% if m.kind == 'discharge' %}{{ m.from_location or '' }} → <b>{{ STATUS_LABELS.get(m.status, m.status) }}</b>
+            {% elif m.kind == 'death' %}Deceased{% if m.to_location %} → <b>{{ m.to_location }}</b>{% endif %}
+            {% else %}{{ {'arrive': 'Arrived', 'readmit': 'Readmitted', 'correct': 'Corrected'}.get(m.kind, '') }} {% if m.from_location %}{{ m.from_location }} → {% endif %}<b>{{ m.to_location or '' }}</b>{% endif %}</td>
+          <td>{{ m.by_name or '' }}</td><td>{{ m.note or '' }}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </details>
+  {% endif %}
+  {% if disps|length > 1 or (disps and disps[0].undone_at) %}
+  <p class="muted">Earlier dispositions: {% for d in disps %}<a href="/patients/{{ p.id }}/disposition/{{ d.id }}">{{ STATUS_LABELS[d.kind] }} {{ d.at|dt }}</a>{% if d.undone_at %} (undone){% endif %}{{ ', ' if not loop.last }}{% endfor %}</p>
+  {% endif %}
+</div>
+<div class="row-head">
+  <h2>Encounters</h2>
+  {% if can_write %}<a class="btn" href="/patients/{{ p.id }}/edit">Edit patient</a>{% endif %}
+</div>
+{% if can_write and (active or p.incoming) %}
+<form method="post" action="/patients/{{ p.id }}/encounters" class="card grid3">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>Chief complaint <input name="chief_complaint" required></label>
+  <label>Location <input name="location" value="{{ p.location_name or '' }}"></label>
+  <label>Start time <input name="started_at" type="datetime-local" data-now></label>
+  <div class="span3 actions"><button class="primary">Start encounter</button></div>
+</form>
+{% endif %}
+<div class="scroll-x"><table>
+  <thead><tr><th>Started</th><th>Complaint</th><th>Location</th><th>Status</th><th>Opened by</th></tr></thead>
+  <tbody>
+  {% for e in encs %}
+    <tr>
+      <td><a href="/encounters/{{ e.id }}">{{ e.started_at|dt }}</a></td>
+      <td>{{ e.chief_complaint or '' }}</td><td>{{ e.location or '' }}</td>
+      <td><span class="tag {{ 'ok' if e.status == 'open' else '' }}">{{ e.status }}</span></td>
+      <td>{{ e.provider or '' }}</td>
+    </tr>
+  {% else %}<tr><td colspan="5" class="muted">No encounters.</td></tr>{% endfor %}
+  </tbody>
+</table></div>
+
+<div class="row-head" id="history">
+  <h2>History</h2>
+  {% if can_write %}<a class="btn" href="/patients/{{ p.id }}/history">Edit history</a>{% endif %}
+</div>
+<div class="card hx">
+  {% set shown = namespace(n=0) %}
+  <dl class="hx-list">
+  {% for k, meta in HISTORY_FIELDS.items() if p[k] and k != 'home_meds' %}{% set shown.n = shown.n + 1 %}
+    <div class="{{ 'wide' if meta[1] > 100 }}"><dt>{{ meta[0] }}</dt><dd>{{ p[k] }}</dd></div>
+  {% endfor %}
+  </dl>
+  {% if not shown.n %}<p class="muted">No history recorded yet.{% if can_write %} <a href="/patients/{{ p.id }}/history">Add history</a>{% endif %}</p>{% endif %}
+  {% if p.history_updated_at %}<p class="muted"><small>Updated {{ p.history_updated_at|dt }}</small></p>{% endif %}
+</div>
+
+{% include "_revisions.html" %}
+
+<h2 id="home-meds">Home medications</h2>
+<div class="card stack">
+  <div class="scroll-x"><table class="compact">
+    <thead><tr><th>Medication</th><th>Dose</th><th>Route</th><th>How often</th><th>For</th><th>Last dose</th><th>Status</th><th>Source</th></tr></thead>
+    <tbody>
+    {% for m in hmeds %}
+      <tr class="{{ 'stopped' if m.status == 'stopped' }}">
+        <td>{% if m.drug_id and has_drugs %}<a href="/drugs/{{ m.drug_id }}">{{ m.name }}</a>{% else %}{{ m.name }}{% endif %}{% if m.notes %}<br><small class="muted">{{ m.notes }}</small>{% endif %}</td>
+        <td>{{ m.dose or '' }}</td><td>{{ m.route or '' }}</td><td>{{ m.frequency or '' }}</td><td>{{ m.indication or '' }}</td>
+        <td>{% if can_write %}
+          <form method="post" action="/patients/{{ p.id }}/home-meds/{{ m.id }}" class="inline-edit">
+            <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="status" value="{{ m.status }}">
+            <input name="last_dose" value="{{ m.last_dose or '' }}" placeholder="e.g. today 08:00" aria-label="Last dose of {{ m.name }}"><button>Save</button></form>
+          {% else %}{{ m.last_dose or '' }}{% endif %}</td>
+        <td>{% if can_write %}
+          <form method="post" action="/patients/{{ p.id }}/home-meds/{{ m.id }}" class="inline-edit">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <select name="status" aria-label="Status of {{ m.name }}">{% for k, v in MED_STATUS.items() %}<option value="{{ k }}" {{ 'selected' if m.status == k }}>{{ v }}</option>{% endfor %}</select><button>Set</button></form>
+          {% else %}{{ MED_STATUS[m.status] }}{% endif %}</td>
+        <td><small>{{ m.source or '' }}<br>{{ m.added_name or '' }}</small></td>
+      </tr>
+    {% else %}<tr><td colspan="8" class="muted">No home medications listed. Ask about prescriptions, over-the-counter drugs, supplements, inhalers, patches and injections.</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+  {% if can_write %}
+  <details {{ 'open' if not hmeds }}>
+    <summary>Add a home medication</summary>
+    <form method="post" action="/patients/{{ p.id }}/home-meds" class="grid4 home-med-form">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="drug_id" data-drug-id>
+      <label class="span2 picker">Medication <input name="name" required data-drug-search data-drug-prefer="oral" autocomplete="off" placeholder="Start typing to search the drug database"><div class="suggest" data-suggest></div></label>
+      <label>Dose <input name="dose" placeholder="e.g. 10 mg"></label>
+      <label>Route <input name="route" placeholder="e.g. oral"></label>
+      <label>How often <input name="frequency" placeholder="e.g. twice daily"></label>
+      <label>For <input name="indication" placeholder="e.g. blood pressure"></label>
+      <label>Last dose <input name="last_dose" placeholder="e.g. today 08:00"></label>
+      <label>Status <select name="status">{% for k, v in MED_STATUS.items() if k != 'error' %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select></label>
+      <label>Source <select name="source">{% for s in MED_SOURCES %}<option>{{ s }}</option>{% endfor %}</select></label>
+      <label class="span3">Notes <input name="notes" placeholder="e.g. missed doses this week, bottle in bag"></label>
+      <div class="span4 actions"><button class="primary">Add medication</button></div>
+    </form>
+  </details>
+  {% endif %}
+</div>
+
+<h2 id="handoff">Assignment</h2>
+<div class="card stack">
+  <p>Assigned to <b>{{ p.assigned_name or 'nobody (triage queue)' }}</b>{% if p.assigned_at %} since {{ p.assigned_at|dt }}{% endif %}.</p>
+  {% if not active and not p.incoming %}
+  {% elif can_assign %}
+    {{ assign_form(p, people, csrf, '/patients/' ~ p.id, 'Assign', allow_queue=True) }}
+  {% elif can_handoff %}
+    <form method="post" action="/patients/{{ p.id }}/assign" class="grid3">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="back" value="/">
+      <label>Hand off to
+        <select name="to_user" required><option value="">Choose provider…</option>
+          {% for u in people if u.id != user.id %}<option value="{{ u.id }}">{{ u.full_name }}</option>{% endfor %}</select></label>
+      <label class="span2">Handoff note <input name="note" maxlength="300" placeholder="e.g. End of shift. Stable, recheck pain 16:00."></label>
+      <div class="span3 actions"><button class="primary">Hand off patient</button></div>
+    </form>
+  {% endif %}
+  {% if history %}
+  <table class="compact">
+    <thead><tr><th>When</th><th>Change</th><th>By</th><th>Note</th></tr></thead>
+    <tbody>{% for h in history %}
+      <tr><td>{{ h.at|dt }}</td>
+        <td>{% if h.kind == 'unassign' %}Returned to triage queue{% elif h.kind == 'handoff' %}Handoff {{ h.from_name or '' }} → <b>{{ h.to_name }}</b>{% else %}Assigned{% if h.from_name %} from {{ h.from_name }}{% endif %} to <b>{{ h.to_name }}</b>{% endif %}</td>
+        <td>{{ h.by_name or '' }}</td><td>{{ h.note or '' }}</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+{% endblock %}

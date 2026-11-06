@@ -1,0 +1,14 @@
+body { font-family: system-ui, sans-serif; font-size: 12pt; color: #000; background: #fff; margin: 18mm; }
+h1 { font-size: 18pt; margin: 0 0 8pt; } h2 { font-size: 13pt; margin: 14pt 0 4pt; border-bottom: 1px solid #999; }
+table { border-collapse: collapse; width: 100%; }
+table.kv th { text-align: left; width: 14%; padding: 3pt 6pt; background: #eee; }
+table.kv td { padding: 3pt 6pt; }
+table.grid th, table.grid td { border: 1px solid #999; padding: 3pt 5pt; text-align: left; font-size: 10.5pt; }
+.pre { white-space: pre-wrap; }
+.foot { margin-top: 20pt; font-size: 9pt; color: #555; }
+@media print { .noprint { display: none; } body { margin: 0; } }
+ul.checks { list-style: none; padding: 0; } ul.checks li { margin: 3pt 0; }
+.attest { margin-top: 14pt; border: 1px solid #999; padding: 8pt; }
+.sigs { display: grid; grid-template-columns: 1fr 1fr; gap: 22pt 24pt; margin-top: 26pt; }
+.sigs div { font-size: 10pt; display: flex; flex-direction: column-reverse; }
+.sigs span { border-bottom: 1px solid #000; height: 26pt; }

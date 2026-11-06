@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Drug reference · {{ site }}{% endblock %}
+{% block content %}
+<h1>Drug reference</h1>
+<form method="get" class="searchbar">
+  <input name="q" value="{{ q }}" placeholder="Generic, brand, class, or street name" autofocus autocomplete="off">
+  <select name="kind">
+    <option value="" {{ 'selected' if not kind }}>All</option>
+    <option value="RX" {{ 'selected' if kind == 'RX' }}>Rx</option>
+    <option value="OTC" {{ 'selected' if kind == 'OTC' }}>OTC</option>
+    <option value="TOX" {{ 'selected' if kind == 'TOX' }}>Overdose cards only</option>
+  </select>
+  <button class="primary">Search</button>
+</form>
+{% if res %}
+  {% if res.tox %}
+  <h2>Overdose / toxicology</h2>
+  <ul class="cards">
+    {% for t in res.tox %}<li class="toxhit"><a href="/tox/{{ t.slug }}"><b>{{ t.name }}</b><span>{{ t.summary }}</span></a></li>{% endfor %}
+  </ul>
+  {% endif %}
+  {% if kind != 'TOX' %}
+  <h2>Medications ({{ res.drugs|length }})</h2>
+  <table>
+    <thead><tr><th>Drug</th><th>Route</th><th>Type</th><th>Class</th><th>Brands</th></tr></thead>
+    <tbody>
+    {% for d in res.drugs %}
+      <tr><td><a href="/drugs/{{ d.id }}">{{ d.display }}</a></td><td>{{ d.route }}</td><td><span class="tag">{{ d.kind }}</span></td>
+        <td><small>{{ d.pharm_class.split(' | ')[0] }}</small></td><td><small>{{ d.brands[:90] }}</small></td></tr>
+    {% else %}<tr><td colspan="5" class="muted">No medications matched.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+{% elif q == '' %}
+  <p class="muted">Search FDA label data for prescription and OTC drugs, or open the <a href="/tox">overdose cards</a>.</p>
+{% endif %}
+{% endblock %}

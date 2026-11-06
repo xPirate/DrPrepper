@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_macros.html" import allergy_badge, pname, assigned %}
+{% block content %}
+<section class="card narrow wide access">
+  <h1>Reason for access</h1>
+  <div class="access-pt">
+    <div><b>{{ pname(p) }}</b> <span class="muted">· {{ p.pnum }}</span></div>
+    <div>{{ allergy_badge(p) }}</div>
+  </div>
+  <p>This patient is assigned to <b>{{ assigned(p) }}</b>, not to you. Your access and the reason you give are recorded in the audit trail and reviewed.</p>
+  <form method="post" action="/patients/{{ p.id }}/access" class="stack">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="next" value="{{ next }}">
+    <fieldset class="reasons">
+      <legend>Why do you need this chart?</legend>
+      {% for r in reasons %}
+      <label class="radio"><input type="radio" name="reason" value="{{ r }}" required> {{ r }}</label>
+      {% endfor %}
+    </fieldset>
+    <label for="note">Details <span class="muted">(required for "Other")</span>
+      <textarea id="note" name="note" rows="2" maxlength="300" placeholder="e.g. Covering bay 3 while Dr. Lee is with a trauma"></textarea></label>
+    <div class="actions"><button class="primary">Open chart</button> <a class="btn" href="/patients">Cancel</a></div>
+    <p class="muted">Access lasts {{ minutes }} minutes for this patient. Allergies are always visible from the badge without a reason.</p>
+  </form>
+</section>
+{% endblock %}

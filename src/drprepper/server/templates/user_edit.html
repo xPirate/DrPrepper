@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<p><a href="/admin/users">← Users</a></p>
+<h1>{{ u.full_name }}</h1>
+<p class="muted">Username <b>{{ u.username }}</b> · created {{ u.created_at|dt }} · last login {{ u.last_login_at|dt or 'never' }}{% if patients %} · {{ patients }} assigned patient(s){% endif %}</p>
+{% set known = u.credential in credentials or not u.credential %}
+<form method="post" action="/admin/users/{{ u.id }}" class="card grid3">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>Last name <input name="last_name" value="{{ u.last_name }}" required></label>
+  <label>First name <input name="first_name" value="{{ u.first_name }}" required></label>
+  <label>Credential
+    <select name="credential">
+      <option value="" {{ 'selected' if not u.credential }}>None</option>
+      {% for c in credentials %}<option {{ 'selected' if c == u.credential or (c == 'Other' and not known) }}>{{ c }}</option>{% endfor %}
+    </select></label>
+  <label>Role
+    <select name="role">
+      {% for r in roles %}<option value="{{ r }}" {{ 'selected' if r == u.role }}>{{ r|rolelabel }}</option>{% endfor %}
+    </select></label>
+  <label>Other credential <input name="credential_other" value="{{ '' if known else u.credential }}"></label>
+  <div class="span3 actions"><button class="primary">Save</button> <a class="btn" href="/admin/users">Cancel</a></div>
+</form>
+<p class="muted">Changes are recorded in the audit trail. Past entries keep the name the person had at the time.</p>
+{% endblock %}

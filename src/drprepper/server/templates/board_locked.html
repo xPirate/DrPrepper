@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en" data-theme="{{ theme }}" data-mode="{{ mode }}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Status board · {{ brand_title }}</title><link rel="stylesheet" href="/theme.css?v={{ theme_ver }}"><link rel="stylesheet" href="/static/style.css"><link rel="stylesheet" href="/static/board.css"></head>
+<body class="board"><main class="bd-locked">
+  <h1>Status board</h1>
+  {% if bad_key %}<p>This display key isn't valid or has been revoked.</p>{% endif %}
+  <p>This screen hasn't been set up. An administrator can create a display key under <b>Admin › Status board</b> and open the link it gives on this screen, or sign in to the console first.</p>
+  <p><a href="/login?next=/board">Sign in</a></p>
+</main></body></html>

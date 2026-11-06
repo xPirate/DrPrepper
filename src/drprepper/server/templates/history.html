@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+{% include "_patient_banner.html" %}
+<h2>Medical history</h2>
+<form method="post" action="/patients/{{ p.id }}/history" class="stack">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  {% macro field(k, rows=0, ph='', cls='') -%}
+    {%- set meta = HISTORY_FIELDS[k] -%}
+    <label class="{{ cls }}">{{ meta[0] }}
+    {%- if k in HISTORY_CHOICES %}
+      <select name="{{ k }}">{% for o in HISTORY_CHOICES[k] %}<option {{ 'selected' if (p[k] or '') == o }}>{{ o }}</option>{% endfor %}</select>
+    {%- elif rows %}<textarea name="{{ k }}" rows="{{ rows }}" maxlength="{{ meta[1] }}" placeholder="{{ ph }}">{{ p[k] or '' }}</textarea>
+    {%- else %}<input name="{{ k }}" value="{{ p[k] or '' }}" maxlength="{{ meta[1] }}" placeholder="{{ ph }}">{% endif %}</label>
+  {%- endmacro %}
+  <section class="card grid2">
+    <h3 class="span2">Medical and surgical</h3>
+    {{ field('conditions', 3, 'e.g. Type 2 diabetes, hypertension, asthma, prior MI 2019', 'span2') }}
+    {{ field('surgical_hx', 2, 'e.g. Appendectomy 2010, L knee replacement', 'span2') }}
+    {{ field('devices', 0, 'e.g. pacemaker, insulin pump, VP shunt, metal plate L tibia') }}
+    {{ field('pcp', 0, 'Name, clinic, phone') }}
+    {{ field('family_hx', 2, 'e.g. Father MI at 50, mother breast cancer', 'span2') }}
+  </section>
+  <section class="card grid3">
+    <h3 class="span3">Social</h3>
+    {{ field('social_tobacco') }}
+    {{ field('social_alcohol') }}
+    {{ field('social_substances', 0, 'What, how, how often, last use') }}
+    {{ field('social_notes', 2, 'Occupation, living situation, caregiver, travel, exposures', 'span3') }}
+  </section>
+  <section class="card grid3">
+    <h3 class="span3">Safety and planning</h3>
+    {{ field('code_status') }}
+    {{ field('advance_directive', 0, 'e.g. POLST on file, healthcare proxy: spouse') }}
+    {{ field('blood_type') }}
+    {{ field('pregnancy') }}
+    {{ field('lmp', 0, 'Date or approx.') }}
+    {{ field('tetanus', 0, 'e.g. 2019, or unknown') }}
+    {{ field('immunizations', 0, 'Other relevant vaccines', 'span3') }}
+  </section>
+  <section class="card">
+    {{ field('home_meds', 2, "Anything that doesn't fit the list, e.g. unlabeled brown pill bottle, herbal supplements") }}
+    <p class="muted">List each medication under <a href="/patients/{{ p.id }}#home-meds">Home medications</a> on the chart so it's checked when medications are given here.</p>
+  </section>
+  <div class="actions"><button class="primary">Save history</button> <a class="btn" href="/patients/{{ p.id }}#history">Cancel</a></div>
+</form>
+{% endblock %}

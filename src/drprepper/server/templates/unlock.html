@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Unlock · {{ site }}{% endblock %}
+{% block content %}
+<section class="card narrow stack">
+  <h1>Unlock patient records</h1>
+  <p>This unit keeps its patient records sealed until someone enters the unlock passphrase. The drug and overdose reference works without it: <a href="/drugs">Drugs</a> · <a href="/tox">Overdose cards</a>.</p>
+  <form method="post" action="/unlock" class="stack">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Unlock passphrase <input name="passphrase" type="password" autocomplete="off" autofocus required></label>
+    <button class="primary">Unlock</button>
+  </form>
+  <p class="muted">Every unlock and every wrong passphrase is recorded in the audit trail.</p>
+</section>
+{% endblock %}

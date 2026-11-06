@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+{% include "_patient_banner.html" %}
+<h2>Leaving care</h2>
+<form method="post" action="/patients/{{ p.id }}/discharge" class="stack dc-form" data-dc>
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <fieldset class="card kind-pick">
+    <legend>How is the patient leaving?</legend>
+    {% for k, v in DISCHARGE_KINDS.items() %}
+    <label class="check"><input type="radio" name="kind" value="{{ k }}" {{ 'checked' if (f.kind or kind) == k }} required> {{ v }}</label>
+    {% endfor %}
+  </fieldset>
+
+  <section class="card grid2">
+    <label>Condition at departure
+      <select name="condition"><option value=""></option>{% for c in conditions %}<option {{ 'selected' if f.condition == c }}>{{ c }}</option>{% endfor %}</select></label>
+    <label data-show="transfer discharged">Going to <span class="muted">(required for a transfer: facility, unit or evacuation asset)</span>
+      <input name="destination" value="{{ f.destination or '' }}" placeholder="e.g. Regional Medical Center via Lifeflight 2"></label>
+    <label class="span2" data-show="discharged ama transfer">Instructions given <textarea name="instructions" rows="3" placeholder="Wound care, medications, warning signs to return for">{{ f.instructions or '' }}</textarea></label>
+    <label class="span2" data-show="discharged ama transfer lwbs">Follow-up <input name="followup" value="{{ f.followup or '' }}" placeholder="e.g. Recheck wound in 48 h at this site or nearest clinic"></label>
+  </section>
+
+  <section class="card stack ama" data-show="ama">
+    <h3>Against medical advice</h3>
+    <p class="muted">Confirm each item. These are printed on the AMA record.</p>
+    {% for k, label in AMA_CHECKS.items() %}
+    <label class="check"><input type="checkbox" name="{{ k }}" value="1" {{ 'checked' if f[k] }}> {{ label }}</label>
+    {% endfor %}
+    <label>Specific risks explained <textarea name="ama_risks_text" rows="3" placeholder="e.g. Risk of re-sedation as naloxone wears off, including stopped breathing and death">{{ f.ama_risks_text or '' }}</textarea></label>
+    <div class="grid2">
+      <label>Signature
+        <select name="ama_signature"><option value=""></option>{% for k, v in AMA_SIGNATURE.items() %}<option value="{{ k }}" {{ 'selected' if f.ama_signature == k }}>{{ v }}</option>{% endfor %}</select></label>
+      <label>Witness <span class="muted">(required if the patient refuses to sign)</span> <input name="witness" value="{{ f.witness or '' }}" placeholder="Name and role"></label>
+    </div>
+  </section>
+
+  <p class="muted">Open encounters are closed with this outcome, and the patient leaves the boards. Triage can readmit or correct it later.</p>
+  <div class="actions"><button class="primary">Record and print</button> <a class="btn" href="/patients/{{ p.id }}">Cancel</a></div>
+</form>
+{% endblock %}

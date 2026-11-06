@@ -1,0 +1,46 @@
+{% from "_macros.html" import timer %}
+{% set s = summary %}
+<div hidden data-board-mode="{{ cfg.mode }}"></div>
+{% if cfg.names %}<div class="bd-names-strip">NAMES SHOWN · first initial and last name</div>{% endif %}
+<section class="bd-stats">
+  <div class="bd-stat {{ 'hot' if s.incoming }}"><span>Incoming</span><b>{{ s.incoming }}</b><small>{% if s.next_eta %}next ETA {{ s.next_eta|hm }}{% else %}&nbsp;{% endif %}</small></div>
+  <div class="bd-stat"><span>Waiting for provider</span><b>{{ s.waiting }}</b>
+    <small>{% if s.oldest_wait %}{{ timer(s.oldest_wait, now_iso, targets, 'longest ') }}{% else %}&nbsp;{% endif %}</small></div>
+  <div class="bd-stat"><span>In triage area</span><b>{{ s.in_triage }}</b><small>&nbsp;</small></div>
+  <div class="bd-stat"><span>In rooms &amp; beds</span><b>{{ s.in_rooms }}</b><small>{{ s.ready }} ready{% if s.dirty %} · {{ s.dirty }} cleaning{% endif %}</small></div>
+  <div class="bd-stat"><span>In OR</span><b>{{ s.in_or }}</b><small>&nbsp;</small></div>
+  <div class="bd-stat total"><span>Active patients</span><b>{{ s.active }}</b><small>{% if s.in_other %}{{ s.in_other }} in other areas{% else %}&nbsp;{% endif %}</small></div>
+</section>
+{% macro person_list(ps) -%}
+  {% if ps %}<ul class="bd-people">{% for p in ps %}
+    <li><b>{{ p.name }}</b>{% if p.allergy == 'allergies' %} <span class="f-al">ALLERGY</span>{% elif p.allergy == 'unknown' %} <span class="f-unk">ALLERGY ?</span>{% endif %}{% if p.dnr %} <span class="f-dnr">DNR</span>{% endif %}
+      {% if p.provider %}<small>{{ p.provider }}</small>{% endif %}</li>{% endfor %}</ul>{% endif %}
+{%- endmacro %}
+{% set STATE_TXT = {'occupied': 'Occupied', 'open': 'Open', 'ready': 'Empty · ready', 'dirty': 'Needs cleaning', 'cleaning': 'Cleaning', 'out': 'Out of service'} %}
+{% for kind, label in [('triage', 'Triage'), ('room', 'Rooms & beds'), ('or', 'Operating rooms'), ('other', 'Other areas'), ('morgue', 'Morgue')] if tiles[kind] %}
+<h2 class="bd-h">{{ label }}</h2>
+<section class="bd-grid">
+  {% for t in tiles[kind] %}
+  {% if t.state == 'group' %}
+  <article class="bd-tile st-group span-{{ [((t.beds|length + 1) // 2), 3]|min }}">
+    <header><b>{{ t.name }}</b><span>{{ t.occupied }}/{{ t.capacity }} occupied</span></header>
+    <div class="bd-beds">
+      {% for b in t.beds %}
+      <div class="bd-bed st-{{ b.state }}">
+        <div class="bb-top"><b>{{ b.name }}</b><span class="bd-state">{{ STATE_TXT.get(b.state, b.state) }}</span>{% if b.since %} <span class="bd-since">{{ timer(b.since, now_iso) }}</span>{% endif %}</div>
+        {{ person_list(b.people) }}
+      </div>
+      {% endfor %}
+    </div>
+  </article>
+  {% else %}
+  <article class="bd-tile st-{{ t.state }} {{ 'over' if t.over }}">
+    <header><b>{{ t.name }}</b>{% if t.capacity > 1 or (t.state in ('occupied', 'open') and not t.capacity) %}<span>{{ t.n }}{% if t.capacity %}/{{ t.capacity }}{% endif %}</span>{% endif %}</header>
+    <div class="bd-state">{{ STATE_TXT.get(t.state, t.state) }}</div>
+    {% if t.since %}<div class="bd-since">{{ timer(t.since, now_iso) }}</div>{% endif %}
+    {{ person_list(t.people) }}
+  </article>
+  {% endif %}
+  {% endfor %}
+</section>
+{% endfor %}

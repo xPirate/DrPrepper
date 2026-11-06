@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Encryption</h1>
+{% if not encrypted %}
+<div class="flash error">This unit runs without encryption (development mode).</div>
+{% else %}
+<div class="card stack">
+  <p>Patient records are encrypted (SQLCipher, AES-256).
+  {% if sealed %}<b>The key is sealed under an unlock passphrase.</b> After every restart the records stay locked until someone enters it at the console; nothing on the SD card alone can open them.
+  {% else %}<b>The key is stored as a plain file</b> ({{ key_file }}) on the same card as the records, so the unit starts unattended, but anyone who takes the card can read everything. Seal it before real patient data goes on a unit that leaves a locked room.{% endif %}</p>
+</div>
+
+{% if not sealed %}
+<form method="post" action="/admin/encryption" class="card grid2">
+  <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="seal">
+  <h2 class="span2">Require a passphrase at start-up</h2>
+  <label>Unlock passphrase ({{ min_len }}+ characters) <input name="new" type="password" autocomplete="new-password" required minlength="{{ min_len }}"></label>
+  <label>Again <input name="confirm" type="password" autocomplete="new-password" required></label>
+  <p class="span2 muted">Write it down and keep it apart from the unit (two people, sealed envelope). If it's lost, the records can only come back from a backup and its own passphrase. Scheduled backups and syslog start again once the unit is unlocked.</p>
+  <div class="span2 actions"><button class="primary">Seal the key</button></div>
+</form>
+{% else %}
+<form method="post" action="/admin/encryption" class="card grid3">
+  <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="change">
+  <h2 class="span3">Change the unlock passphrase</h2>
+  <label>Current passphrase <input name="current" type="password" autocomplete="current-password" required></label>
+  <label>New passphrase <input name="new" type="password" autocomplete="new-password" required minlength="{{ min_len }}"></label>
+  <label>Again <input name="confirm" type="password" autocomplete="new-password" required></label>
+  <div class="span3 actions"><button class="primary">Change passphrase</button></div>
+</form>
+<form method="post" action="/admin/encryption" class="card grid3">
+  <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="unseal">
+  <h2 class="span3">Go back to unattended start</h2>
+  <p class="span3 muted">Stores the key as a plain file again. Only for a unit that never leaves a secured room.</p>
+  <label>Current passphrase <input name="current" type="password" autocomplete="current-password" required></label>
+  <div class="span2 actions"><button>Store the key unsealed</button></div>
+</form>
+{% endif %}
+{% endif %}
+{% endblock %}

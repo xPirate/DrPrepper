@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% from "_theme_preview.html" import preview %}
+{% block content %}
+<h1>Branding</h1>
+<p class="muted">Name the console after your team or event, add your icon, and pick the look everyone gets by default. The touchscreen shows the same title and icon.</p>
+
+<div class="card stack">
+  <b>Current header</b>
+  <div class="brand-preview">
+    {% if b.icon and b.show in ('both', 'icon') %}<img src="/branding/icon?v={{ b.icon_ver }}" alt="Current icon">{% endif %}
+    {% if b.show != 'icon' or not b.icon %}<span class="bt"><b>{{ brand_title }}</b>{% if b.tagline %}<span class="tagline">{{ b.tagline }}</span>{% endif %}</span>{% endif %}
+  </div>
+</div>
+
+<form method="post" action="/admin/branding" enctype="multipart/form-data" class="stack">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <section class="card grid2">
+    <h2 class="span2">Title and icon</h2>
+    <label>Title <input name="title" value="{{ b.title }}" maxlength="60" placeholder="Dr.Prepper"></label>
+    <label>Tagline <span class="muted">(optional, under the title)</span> <input name="tagline" value="{{ b.tagline }}" maxlength="80" placeholder="e.g. County MCI Field Hospital"></label>
+    <label>Show in the header
+      <select name="show">{% for k, v in show_opts.items() %}<option value="{{ k }}" {{ 'selected' if b.show == k }}>{{ v }}</option>{% endfor %}</select></label>
+    <fieldset class="span2 icon-pick">
+      <legend>Icon</legend>
+      <div class="icon-grid">
+        {% for key, label in builtin.items() %}
+        <label class="icon-opt"><input type="radio" name="icon_choice" value="builtin:{{ key }}" {{ 'checked' if b.icon == 'builtin:' ~ key }}>
+          <img src="/static/icons/{{ key }}.png" alt=""><span>{{ label }}</span></label>
+        {% endfor %}
+        <label class="icon-opt"><input type="radio" name="icon_choice" value="custom" {{ 'checked' if b.icon and not b.icon.startswith('builtin:') }}>
+          {% if b.custom_icon %}<img src="/branding/custom-icon?v={{ b.icon_ver }}" alt="">{% else %}<span class="icon-up">⇪</span>{% endif %}<span>My own icon</span></label>
+        <label class="icon-opt"><input type="radio" name="icon_choice" value="none" {{ 'checked' if not b.icon }}><span class="icon-up">∅</span><span>No icon</span></label>
+      </div>
+      <label>Upload my own <span class="muted">PNG, JPEG or WebP, up to 512 KB. A square image of 256 px or more looks best. Uploading selects it.</span>
+        <input type="file" name="icon" accept="image/png,image/jpeg,image/webp"></label>
+      <p class="muted">The built-in icons are original artwork. The red cross, red crescent and Star of Life are left out on purpose: they're protected emblems and shouldn't be used without authorization.</p>
+    </fieldset>
+    <p class="span2 muted">Leave the title empty to use "Dr.Prepper". The title also names browser tabs and the sign-in page.</p>
+  </section>
+
+  <section class="card grid2">
+    <h2 class="span2">Look</h2>
+    <label>Default light or dark
+      <select name="mode">{% for m in modes %}<option value="{{ m }}" {{ 'selected' if b.mode == m }}>{{ {'auto': 'Automatic (follow each device)', 'light': 'Light', 'dark': 'Dark'}[m] }}</option>{% endfor %}</select></label>
+    <label class="check"><input type="checkbox" name="allow_user_theme" value="1" {{ 'checked' if b.allow_user_theme }}> Let each user pick their own theme</label>
+    <div class="field">Brand accent colour <span class="muted">(replaces the theme's accent; lightened or darkened as needed to stay readable)</span>
+      <span class="unit"><input type="color" name="accent" value="{{ b.accent or '#1f6f5c' }}" aria-label="Accent colour">
+      <label class="check"><input type="checkbox" name="accent_on" value="1" {{ 'checked' if b.accent }}> Use this colour</label></span></div>
+    <div></div>
+    <div class="span2 theme-grid">
+      {% for key, t in themes.items() %}
+      <label class="theme-opt">
+        <span class="to-head"><input type="radio" name="theme" value="{{ key }}" {{ 'checked' if b.theme == key }}> {{ t.name }}</span>
+        <span class="tp-pair">{{ preview(key, t, 'light') }}{{ preview(key, t, 'dark') }}</span>
+        <span class="to-blurb">{{ t.blurb }}</span>
+      </label>
+      {% endfor %}
+    </div>
+  </section>
+  <div class="actions"><button class="primary">Save branding</button></div>
+</form>
+<p class="muted">Allergy, overdose and warning colours keep their meaning in every theme. All themes are checked for readable contrast.</p>
+{% endblock %}

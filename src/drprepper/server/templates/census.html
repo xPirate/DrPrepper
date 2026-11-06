@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% from "_macros.html" import allergy_badge, code_badge, pname, timer, status_tag %}
+{% macro spot(l) -%}
+  {% if cleanable(l) and not l.patients %}
+  <div class="room-state"><span class="rstate rs-{{ l.state }}">{{ ROOM_STATES[l.state] }}</span>{% if l.state_at and l.state != 'ready' %} {{ timer(l.state_at, now_iso) }}{% endif %}
+    <form method="post" action="/locations/{{ l.id }}/state" class="inline-states">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      {% if l.state == 'dirty' %}<button name="state" value="cleaning">Start cleaning</button><button name="state" value="ready">Ready</button>
+      {% elif l.state == 'cleaning' %}<button name="state" value="ready" class="primary">Ready</button>
+      {% elif l.state == 'ready' %}<button name="state" value="dirty">Needs cleaning</button>{% endif %}
+      {% if user.role in ('triage', 'admin') %}{% if l.state == 'out' %}<button name="state" value="ready">Back in service</button>{% else %}<button name="state" value="out" class="link">Out of service</button>{% endif %}{% endif %}
+    </form>
+  </div>
+  {% endif %}
+  {% for p in l.patients %}
+  <div class="loc-pt">
+    <a href="/patients/{{ p.id }}">{{ pname(p) }}</a> {{ status_tag(p) }}
+    <div>{{ allergy_badge(p) }} {{ code_badge(p) }}</div>
+    <small class="muted">{{ p.assigned_name or 'Unassigned' }} · {{ timer(p.location_at, now_iso) }} here</small>
+  </div>
+  {% else %}{% if not cleanable(l) %}<p class="muted">Empty</p>{% endif %}{% endfor %}
+{%- endmacro %}
+{% block content %}
+<div class="row-head"><h1>Census</h1><span class="muted">Who is where, right now · <a href="/board">Status board</a></span></div>
+{% if no_locations %}
+<div class="card">No locations are set up yet. {% if user.role == 'admin' %}Build your space under <a href="/admin/locations">Admin › Locations</a>.{% else %}Ask an administrator to add them under Admin › Locations.{% endif %}</div>
+{% endif %}
+{% if unplaced %}
+<div class="flash error">{{ unplaced|length }} patient(s) in care have no location:
+  {% for p in unplaced %}<a href="/patients/{{ p.id }}#location">{{ pname(p) }}</a>{{ ', ' if not loop.last }}{% endfor %}</div>
+{% endif %}
+{% for kind in KIND_LABELS if groups.get(kind) %}
+<h2>{{ KIND_LABELS[kind] }}</h2>
+<div class="census-grid">
+  {% for l in groups[kind] %}
+  {% if l.beds %}
+  {% set occ = l.beds|selectattr('patients')|list|length %}
+  <section class="loc-card group k-{{ kind }} {{ 'wide' if l.beds|length > 2 }}">
+    <header><b>{{ l.name }}</b><span class="muted">{{ occ }}/{{ l.beds|length }} beds occupied</span></header>
+    <div class="bed-grid">
+      {% for b in l.beds %}
+      {% set st = 'occupied' if b.patients else b.state %}
+      <div class="bed rs-{{ st }} {{ 'over' if b.patients|length > 1 }}">
+        <header><b>{{ b.own_name }}</b></header>
+        {{ spot(b) }}
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% else %}
+  {% set st = 'occupied' if l.patients else l.state %}
+  <section class="loc-card k-{{ kind }} {{ 'empty' if not l.patients and st == 'ready' }} rs-{{ st }} {{ 'over' if l.capacity and l.patients|length > l.capacity }}">
+    <header><b>{{ l.name }}</b>
+      <span class="muted">{% if l.capacity %}{{ l.patients|length }}/{{ l.capacity }}{% else %}{{ l.patients|length }}{% endif %}</span></header>
+    {{ spot(l) }}
+  </section>
+  {% endif %}
+  {% endfor %}
+</div>
+{% endfor %}
+{% if user.role == 'admin' %}<p class="muted">Add rooms, beds and areas under <a href="/admin/locations">Admin › Locations</a>.</p>{% endif %}
+{% endblock %}

@@ -1,0 +1,13 @@
+{# Miniature of the console drawn in a given theme and mode. #}
+{% macro preview(key, t, mode) -%}
+<div class="tp" data-theme="{{ key }}" data-mode="{{ mode }}" aria-hidden="true">
+  <div class="tp-head"><b>{{ brand_title }}</b><span class="tp-od">Overdose</span></div>
+  <div class="tp-body">
+    <div class="tp-card">
+      <div class="tp-name">Hayes, Marcus <span class="tp-allergy">ALLERGIES</span></div>
+      <div class="tp-muted">Last seen by: Smith, Harold EMT-B</div>
+      <div class="tp-row"><span class="tp-btn">Save</span><span class="tp-link">Handoff summary</span><span class="tp-warn">Pre-arrival</span></div>
+    </div>
+  </div>
+</div>
+{%- endmacro %}

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Users</h1>
+{% if temp_pw %}
+<div class="flash warn">One-time password for <b>{{ temp_pw[0] }}</b>: <code class="big">{{ temp_pw[1] }}</code><br>
+Give it to them now; it won't be shown again. They must choose their own password at first login.</div>
+{% endif %}
+{% if stale %}<div class="flash warn">{{ stale|length }} active account(s) haven't been used in 30 days. Review them and disable any that no longer need access.</div>{% endif %}
+<div class="scroll-x"><table>
+  <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Status</th><th>Patients</th><th>Last login</th><th></th></tr></thead>
+  <tbody>
+  {% for u in rows %}
+  <tr class="{{ '' if u.active else 'dim' }}">
+    <td><a href="/admin/users/{{ u.id }}"><b>{{ u.full_name }}</b></a></td>
+    <td>{{ u.username }}</td>
+    <td><span class="role role-{{ u.role }}">{{ u.role|rolelabel }}</span></td>
+    <td>{% if u.active %}<span class="tag ok">active</span>{% else %}<span class="tag">disabled</span>{% endif %}{% if u.must_change_pw %} <span class="tag warn">temp password</span>{% endif %}{% if u.id in stale %} <span class="tag warn" title="No sign-in for 30 days. Disable it if they no longer need access.">unused 30+ days</span>{% endif %}</td>
+    <td class="num">{{ u.patients or '' }}</td>
+    <td>{{ u.last_login_at|dt or '—' }}{% if u.sessions %}<br><small class="muted">{{ u.sessions }} signed-in session{{ 's' if u.sessions != 1 }}</small>{% endif %}</td>
+    <td class="actions">
+      <a class="btn" href="/admin/users/{{ u.id }}">Edit</a>
+      <form method="post" action="/admin/users/{{ u.id }}/reset" class="inline" data-confirm="Reset the password for {{ u.full_name }}? They'll get a new one-time password."><input type="hidden" name="csrf" value="{{ csrf }}"><button>Reset password</button></form>
+      {% if u.sessions %}<form method="post" action="/admin/users/{{ u.id }}/signout" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button title="End every session this user has open, on any device">Sign out everywhere</button></form>{% endif %}
+      {% if u.id != user.id %}<form method="post" action="/admin/users/{{ u.id }}/toggle" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button>{{ 'Disable' if u.active else 'Enable' }}</button></form>{% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+
+<h2>Add user</h2>
+<form method="post" action="/admin/users" class="card grid3">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>Last name <input name="last_name" required></label>
+  <label>First name <input name="first_name" required></label>
+  <label>Credential
+    <select name="credential" data-other="credential_other">
+      <option value="">None</option>
+      {% for c in credentials %}<option>{{ c }}</option>{% endfor %}
+    </select></label>
+  <label>Username <input name="username" autocapitalize="none" required placeholder="e.g. hsmith"></label>
+  <label>Role
+    <select name="role" required>
+      {% for r in roles %}<option value="{{ r }}" {{ 'selected' if r == 'provider' }}>{{ r|rolelabel }}</option>{% endfor %}
+    </select></label>
+  <label>Other credential <input name="credential_other" placeholder="if not listed"></label>
+  <div class="span3 actions"><button class="primary">Create user</button>
+    <span class="muted">Shown as "Last, First Credential", e.g. Smith, Harold EMT-B.</span></div>
+</form>
+
+<h2>What each role can do</h2>
+<div class="scroll-x"><table class="compact roles-table">
+  <thead><tr><th>Role</th><th>Patients they can open</th><th>Can change charts</th><th>Assign / reassign</th><th>Admin pages</th></tr></thead>
+  <tbody>
+    <tr><td>Triage</td><td>All, no reason needed</td><td>Yes</td><td>Any patient</td><td>No</td></tr>
+    <tr><td>Provider</td><td>Their assigned patients; others with a reason</td><td>Yes</td><td>Hand off their own patients</td><td>No</td></tr>
+    <tr><td>Viewer</td><td>Any, with a reason</td><td>No</td><td>No</td><td>No</td></tr>
+    <tr><td>Admin</td><td>Any, with a reason</td><td>Yes</td><td>Any patient</td><td>Yes</td></tr>
+  </tbody>
+</table></div>
+<p class="muted">Every role sees patient names on lists and can open the allergy badge without a reason. Each badge view is recorded.</p>
+{% endblock %}

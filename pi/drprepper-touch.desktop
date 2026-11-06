@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Dr.Prepper
+Comment=Offline drug and overdose reference
+Exec=/usr/local/bin/drprepper-kiosk
+X-GNOME-Autostart-enabled=true

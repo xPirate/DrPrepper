@@ -1,0 +1,24 @@
+<table class="kv">
+  <tr><th>Outcome</th><td colspan="3"><b>{{ STATUS_LABELS[d.kind] }}</b>{% if d.undone_at %} — <b>UNDONE</b> {{ d.undone_at|dt }} by {{ d.undone_name or '?' }}: {{ d.undo_reason }}{% endif %}</td></tr>
+  <tr><th>Recorded</th><td>{{ d.at|dt }}</td><th>By</th><td>{{ d.by_name or '?' }}</td></tr>
+  {% if d.kind == 'deceased' %}
+  <tr><th>Time of death</th><td>{{ d.time_of_death|dt }}</td><th>Pronounced by</th><td>{{ d.pronounced_by }}</td></tr>
+  <tr><th>Next of kin notified</th><td>{{ NOK.get(d.nok_notified, '') }}</td><th>Tag number</th><td>{{ d.tag_number or '' }}</td></tr>
+  <tr><th>Personal effects</th><td colspan="3">{{ d.effects or '' }}</td></tr>
+  <tr><th>Circumstances</th><td colspan="3" class="pre">{{ d.death_notes or '' }}</td></tr>
+  {% else %}
+  <tr><th>Condition</th><td>{{ d.condition or '' }}</td><th>Going to</th><td>{{ d.destination or '' }}</td></tr>
+  <tr><th>Instructions</th><td colspan="3" class="pre">{{ d.instructions or '' }}</td></tr>
+  <tr><th>Follow-up</th><td colspan="3">{{ d.followup or '' }}</td></tr>
+  {% endif %}
+</table>
+{% if d.kind == 'ama' %}
+<h2>Against medical advice</h2>
+<ul class="checks">{% for k, label in AMA_CHECKS.items() %}<li>{{ '☑' if d[k] else '☐' }} {{ label }}</li>{% endfor %}</ul>
+<p><b>Risks explained:</b> <span class="pre">{{ d.ama_risks_text or '' }}</span></p>
+<p><b>Signature:</b> {{ AMA_SIGNATURE.get(d.ama_signature, '') }}{% if d.witness %} · <b>Witness:</b> {{ d.witness }}{% endif %}</p>
+{% endif %}
+{% if d.kind in ('discharged', 'ama', 'transfer') and meds %}
+<h2>Home medications</h2>
+<ul>{% for m in meds %}<li>{{ m.name }}{% if m.dose %} {{ m.dose }}{% endif %}{% if m.route %} {{ m.route }}{% endif %}{% if m.frequency %} {{ m.frequency }}{% endif %}{% if m.status == 'prn' %} (as needed){% endif %}</li>{% endfor %}</ul>
+{% endif %}
